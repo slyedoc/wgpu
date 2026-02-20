@@ -94,6 +94,10 @@ By @teoxoy in [#9351](https://github.com/gfx-rs/wgpu/pull/9351).
   - DRM support by @rectalogic in [#9182](https://github.com/gfx-rs/wgpu/pull/9182).
   - Conditional compilation by @jimblandy in [#9390](https://github.com/gfx-rs/wgpu/pull/9390)
 
+#### naga
+
+- spirv-out ray tracing pipelines. By @Vecvec in [#9085](https://github.com/gfx-rs/wgpu/pull/9085).
+
 ### Changes
 
 #### General
