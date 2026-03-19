@@ -42,13 +42,11 @@ Bottom level categories:
 
 ## Unreleased
 
-## v29.0.3 (2026-05-01)
+### Changes
 
-### Bug Fixes
+#### General
 
-- Fix compilation error when `cfg(debug_assertions)` is not active. `wgpu-core` `v29.0.2` has been yanked. By @Elabajaba in [#9352](https://github.com/gfx-rs/wgpu/pull/9352).
-
-## v29.0.2 (2026-05-01)
+- `Features::CLIP_DISTANCE`, `naga::Capabilities::CLIP_DISTANCE`, and `naga::BuiltIn::ClipDistance` have been renamed to `CLIP_DISTANCES` and `ClipDistances` (viz., pluralized) as appropriate, to match the WebGPU spec. By @ErichDonGubler in [#9267](https://github.com/gfx-rs/wgpu/pull/9267).
 
 ### Bug Fixes
 
