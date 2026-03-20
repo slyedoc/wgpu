@@ -97,6 +97,10 @@ This release includes `wgpu-core`, `wgpu-hal` and `wgpu-types` version `29.0.1`.
 
 - Don't crash in the `Display` implementation of `CreateTextureViewError::TooMany{MipLevels,ArrayLayers}` when their base and offset overflow. By @ErichDonGubler in [#8808](https://github.com/gfx-rs/wgpu/pull/8808).
 
+#### naga
+
+- Fixed overflow detection and argument domain validation for `acosh`, `length`, `normalize`, and `pow` in constant evaluation. By @ecoricemon in [#9249](https://github.com/gfx-rs/wgpu/pull/9249).
+
 ## v29.0.0 (2026-03-18)
 
 ### Major Changes
