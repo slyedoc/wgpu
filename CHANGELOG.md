@@ -110,6 +110,7 @@ This release includes `wgpu-core`, `wgpu-hal` and `wgpu-types` version `29.0.1`.
 #### naga
 
 - Fixed overflow detection and argument domain validation for `acosh`, `length`, `normalize`, and `pow` in constant evaluation. By @ecoricemon in [#9249](https://github.com/gfx-rs/wgpu/pull/9249).
+- Naga no longer allows derivative operations on `f16`. WGSL does not currently allow this, although [it may be added in the future](https://github.com/gpuweb/gpuweb/issues/5482). By @andyleiserson in [#9154](https://github.com/gfx-rs/wgpu/pull/9154).
 
 #### Metal
 
