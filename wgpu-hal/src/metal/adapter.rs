@@ -1269,26 +1269,32 @@ impl super::CapabilitiesQuery {
             max_texture_dimension_2d: self.max_texture_size as u32,
             max_texture_dimension_3d: self.max_texture_3d_size as u32,
             max_texture_array_layers: self.max_texture_layers as u32,
-            max_bind_groups: 8,
-            max_bindings_per_bind_group: 65535,
-            max_dynamic_uniform_buffers_per_pipeline_layout: base
-                .max_dynamic_uniform_buffers_per_pipeline_layout,
-            max_dynamic_storage_buffers_per_pipeline_layout: base
-                .max_dynamic_storage_buffers_per_pipeline_layout,
-            max_sampled_textures_per_shader_stage: self.max_textures_per_stage,
-            max_samplers_per_shader_stage: self.max_samplers_per_stage,
-            max_storage_buffers_per_shader_stage: self.max_buffers_per_stage,
-            max_storage_textures_per_shader_stage: self.max_textures_per_stage,
-            max_uniform_buffers_per_shader_stage: self.max_buffers_per_stage,
-            max_binding_array_elements_per_shader_stage: self.max_binding_array_elements,
-            max_binding_array_sampler_elements_per_shader_stage: self
-                .max_sampler_binding_array_elements,
-            max_binding_array_acceleration_structure_elements_per_shader_stage: 0,
-            // Note: any adjustment here will not be reflected in the stored `PrivateCapabilities`.
-            max_uniform_buffer_binding_size: self.max_buffer_size.min(!0u32 as u64),
-            max_storage_buffer_binding_size: self.max_buffer_size.min(!0u32 as u64)
-                & !(wgt::STORAGE_BINDING_SIZE_ALIGNMENT as u64 - 1),
-            max_vertex_buffers: self.max_vertex_buffers,
+            // No limit.
+            max_bind_groups: u32::MAX,
+            // No limit. Once we start using argument buffers we should set this appropriately.
+            max_bind_groups_plus_vertex_buffers: u32::MAX,
+            // No limit.
+            max_bindings_per_bind_group: u32::MAX,
+            // No limit, use maxUniformBuffersPerShaderStage.
+            max_dynamic_uniform_buffers_per_pipeline_layout: MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE,
+            // No limit, use maxStorageBuffersPerShaderStage.
+            max_dynamic_storage_buffers_per_pipeline_layout: MAX_STORAGE_BUFFERS_PER_SHADER_STAGE,
+            // "Maximum number of entries in the sampler state argument table, per graphics or kernel function"
+            max_samplers_per_shader_stage: 16,
+            max_sampled_textures_per_shader_stage: self.max_textures_per_stage.0,
+            max_storage_textures_per_shader_stage: self.max_textures_per_stage.1,
+            max_storage_buffers_per_shader_stage: MAX_STORAGE_BUFFERS_PER_SHADER_STAGE,
+            max_uniform_buffers_per_shader_stage: MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE,
+            max_vertex_buffers: MAX_VERTEX_BUFFERS,
+            max_buffer_size: self.max_buffer_size,
+            // No limit, use maxBufferSize.
+            max_uniform_buffer_binding_size: self.max_buffer_size,
+            // No limit, use maxBufferSize.
+            max_storage_buffer_binding_size: self.max_buffer_size,
+            min_uniform_buffer_offset_alignment: self.constant_buffer_offset_alignment,
+            // No documented limit. Use 32, which is the lowest allowed value.
+            min_storage_buffer_offset_alignment: 32,
+            // "Maximum number of vertex attributes, per vertex descriptor"
             max_vertex_attributes: 31,
             max_vertex_buffer_array_stride: base.max_vertex_buffer_array_stride,
             max_immediate_size: 0x1000,
