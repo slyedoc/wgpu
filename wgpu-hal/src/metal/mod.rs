@@ -329,6 +329,7 @@ struct CapabilitiesQuery {
     supports_memoryless_storage: bool,
     supports_raytracing: bool,
     shader_per_vertex: bool,
+    supports_multisample_array: bool,
 }
 
 #[derive(Debug)]
