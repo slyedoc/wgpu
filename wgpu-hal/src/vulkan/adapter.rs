@@ -622,11 +622,13 @@ impl PhysicalDeviceFeatures {
             vulkan_memory_model: if device_api_version >= vk::API_VERSION_1_2
                 || enabled_extensions.contains(&khr::vulkan_memory_model::NAME)
             {
-                let needed =
-                    requested_features.contains(wgt::Features::EXPERIMENTAL_COOPERATIVE_MATRIX);
+                // Enable the Vulkan memory model + device scope whenever the adapter
+                // supports it, so that naga-emitted SPIR-V using `VulkanMemoryModel`
+                // + device-scope atomics (e.g. ray tracing pipelines) is valid.
                 Some(
                     vk::PhysicalDeviceVulkanMemoryModelFeaturesKHR::default()
-                        .vulkan_memory_model(needed),
+                        .vulkan_memory_model(true)
+                        .vulkan_memory_model_device_scope(true),
                 )
             } else {
                 None
