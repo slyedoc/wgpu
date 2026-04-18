@@ -1389,6 +1389,12 @@ pub struct WebComputePipeline {
 }
 
 #[derive(Debug, Clone)]
+pub struct WebRayTracingPipeline {
+    /// Unique identifier for this RayTracingPipeline.
+    ident: crate::cmp::Identifier,
+}
+
+#[derive(Debug, Clone)]
 pub struct WebPipelineCache {
     /// Unique identifier for this PipelineCache.
     ident: crate::cmp::Identifier,
@@ -1488,6 +1494,7 @@ impl_send_sync!(WebQuerySet);
 impl_send_sync!(WebPipelineLayout);
 impl_send_sync!(WebRenderPipeline);
 impl_send_sync!(WebComputePipeline);
+impl_send_sync!(WebRayTracingPipeline);
 impl_send_sync!(WebPipelineCache);
 impl_send_sync!(WebCommandEncoder);
 impl_send_sync!(WebComputePassEncoder);
@@ -1518,6 +1525,7 @@ crate::cmp::impl_eq_ord_hash_proxy!(WebQuerySet => .ident);
 crate::cmp::impl_eq_ord_hash_proxy!(WebPipelineLayout => .ident);
 crate::cmp::impl_eq_ord_hash_proxy!(WebRenderPipeline => .ident);
 crate::cmp::impl_eq_ord_hash_proxy!(WebComputePipeline => .ident);
+crate::cmp::impl_eq_ord_hash_proxy!(WebRayTracingPipeline => .ident);
 crate::cmp::impl_eq_ord_hash_proxy!(WebPipelineCache => .ident);
 crate::cmp::impl_eq_ord_hash_proxy!(WebCommandEncoder => .ident);
 crate::cmp::impl_eq_ord_hash_proxy!(WebComputePassEncoder => .ident);
@@ -2351,6 +2359,29 @@ impl dispatch::DeviceInterface for WebDevice {
         .into()
     }
 
+    fn create_ray_tracing_pipeline(
+        &self,
+        _desc: &crate::RayTracingPipelineDescriptor<'_>,
+    ) -> dispatch::DispatchRayTracingPipeline {
+        unimplemented!("ray tracing pipelines are not supported on WebGPU")
+    }
+
+    fn get_ray_tracing_shader_group_handles(
+        &self,
+        _pipeline: &dispatch::DispatchRayTracingPipeline,
+        _first: u32,
+        _count: u32,
+    ) -> Vec<u8> {
+        unimplemented!("ray tracing pipelines are not supported on WebGPU")
+    }
+
+    fn get_buffer_device_address(
+        &self,
+        _buffer: &dispatch::DispatchBuffer,
+    ) -> wgt::BufferAddress {
+        0
+    }
+
     unsafe fn create_pipeline_cache(
         &self,
         _desc: &crate::PipelineCacheDescriptor<'_>,
@@ -3014,6 +3045,13 @@ impl Drop for WebComputePipeline {
     }
 }
 
+impl dispatch::RayTracingPipelineInterface for WebRayTracingPipeline {}
+impl Drop for WebRayTracingPipeline {
+    fn drop(&mut self) {
+        // no-op
+    }
+}
+
 impl dispatch::CommandEncoderInterface for WebCommandEncoder {
     fn copy_buffer_to_buffer(
         &self,
@@ -3338,6 +3376,21 @@ impl dispatch::CommandEncoderInterface for WebCommandEncoder {
         _tlas: &mut dyn Iterator<Item = &'a crate::Tlas>,
     ) {
         unimplemented!("Raytracing not implemented for web");
+    }
+
+    fn trace_rays(
+        &self,
+        _pipeline: &dispatch::DispatchRayTracingPipeline,
+        _bind_groups: &[(&dispatch::DispatchBindGroup, &[wgt::DynamicOffset])],
+        _raygen_sbt: &wgt::ShaderBindingTableRegion,
+        _miss_sbt: &wgt::ShaderBindingTableRegion,
+        _hit_sbt: &wgt::ShaderBindingTableRegion,
+        _callable_sbt: &wgt::ShaderBindingTableRegion,
+        _width: u32,
+        _height: u32,
+        _depth: u32,
+    ) {
+        unimplemented!("Ray tracing pipelines not supported on webgpu");
     }
 
     fn transition_resources<'a>(

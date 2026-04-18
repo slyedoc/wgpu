@@ -340,6 +340,96 @@ impl ComputePipeline {
     }
 }
 
+/// Describes a ray tracing pipeline.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RayTracingPipelineDescriptor<
+    'a,
+    PLL = PipelineLayoutId,
+    SM = ShaderModuleId,
+    PLC = PipelineCacheId,
+> {
+    pub label: Label<'a>,
+    /// The layout of bind groups for this pipeline.
+    pub layout: Option<PLL>,
+    /// All shader stages used by this pipeline.
+    pub stages: Vec<ProgrammableStageDescriptor<'a, SM>>,
+    /// Shader group definitions mapping stages into SBT records.
+    pub groups: Vec<wgt::RayTracingShaderGroupDescriptor>,
+    /// Maximum ray recursion depth.
+    pub max_pipeline_ray_recursion_depth: u32,
+    /// The pipeline cache to use when creating this pipeline.
+    pub cache: Option<PLC>,
+}
+
+/// cbindgen:ignore
+pub type ResolvedRayTracingPipelineDescriptor<'a> = RayTracingPipelineDescriptor<
+    'a,
+    Arc<PipelineLayout>,
+    Arc<ShaderModule>,
+    Arc<PipelineCache>,
+>;
+
+#[derive(Clone, Debug, Error)]
+#[non_exhaustive]
+pub enum CreateRayTracingPipelineError {
+    #[error(transparent)]
+    Device(#[from] DeviceError),
+    #[error(transparent)]
+    Stage(#[from] validation::StageError),
+    #[error("Internal error: {0}")]
+    Internal(String),
+    #[error(transparent)]
+    MissingFeatures(#[from] MissingFeatures),
+    #[error(transparent)]
+    InvalidResource(#[from] InvalidResourceError),
+}
+
+impl WebGpuError for CreateRayTracingPipelineError {
+    fn webgpu_error_type(&self) -> ErrorType {
+        match self {
+            Self::Device(e) => e.webgpu_error_type(),
+            Self::InvalidResource(e) => e.webgpu_error_type(),
+            Self::MissingFeatures(e) => e.webgpu_error_type(),
+            Self::Stage(e) => e.webgpu_error_type(),
+            Self::Internal(_) => ErrorType::Internal,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct RayTracingPipeline {
+    pub(crate) raw: ManuallyDrop<Box<dyn hal::DynRayTracingPipeline>>,
+    pub(crate) layout: Arc<PipelineLayout>,
+    pub(crate) device: Arc<Device>,
+    pub(crate) _shader_modules: Vec<Arc<ShaderModule>>,
+    /// The `label` from the descriptor used to create the resource.
+    pub(crate) label: String,
+    pub(crate) tracking_data: TrackingData,
+}
+
+impl Drop for RayTracingPipeline {
+    fn drop(&mut self) {
+        resource_log!("Destroy raw {}", self.error_ident());
+        let raw = unsafe { ManuallyDrop::take(&mut self.raw) };
+        unsafe {
+            self.device.raw().destroy_ray_tracing_pipeline(raw);
+        }
+    }
+}
+
+crate::impl_resource_type!(RayTracingPipeline);
+crate::impl_labeled!(RayTracingPipeline);
+crate::impl_parent_device!(RayTracingPipeline);
+crate::impl_storage_item!(RayTracingPipeline);
+crate::impl_trackable!(RayTracingPipeline);
+
+impl RayTracingPipeline {
+    pub(crate) fn raw(&self) -> &dyn hal::DynRayTracingPipeline {
+        self.raw.as_ref()
+    }
+}
+
 #[derive(Clone, Debug, Error)]
 #[non_exhaustive]
 pub enum CreatePipelineCacheError {

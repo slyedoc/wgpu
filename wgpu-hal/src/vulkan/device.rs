@@ -2324,6 +2324,184 @@ impl crate::Device for super::Device {
         self.counters.compute_pipelines.sub(1);
     }
 
+    unsafe fn create_ray_tracing_pipeline(
+        &self,
+        desc: &crate::RayTracingPipelineDescriptor<
+            super::PipelineLayout,
+            super::ShaderModule,
+            super::PipelineCache,
+        >,
+    ) -> Result<super::RayTracingPipeline, crate::PipelineError> {
+        let rt_fns = self
+            .shared
+            .extension_fns
+            .ray_tracing
+            .as_ref()
+            .and_then(|rt| rt.ray_tracing_pipeline.as_ref())
+            .expect("ray tracing pipeline extension not loaded");
+
+        // Compile all shader stages
+        let mut compiled_stages = Vec::with_capacity(desc.stages.len());
+        let mut vk_stages = Vec::with_capacity(desc.stages.len());
+        for stage in desc.stages {
+            // For RT pipelines, look up the actual shader stage from the naga module
+            let naga_stage = match *stage.module {
+                super::ShaderModule::Intermediate {
+                    ref naga_shader, ..
+                } => {
+                    // Find the entry point by name to determine its stage
+                    let ep_name = stage.entry_point;
+                    naga_shader
+                        .module
+                        .entry_points
+                        .iter()
+                        .find(|ep| ep.name == ep_name)
+                        .map(|ep| ep.stage)
+                        .unwrap_or(naga::ShaderStage::Compute)
+                }
+                super::ShaderModule::Raw(_) => {
+                    // For raw SPIR-V passthrough, we can't determine the stage.
+                    // The driver will figure it out from the SPIR-V entry point.
+                    naga::ShaderStage::Compute
+                }
+            };
+            let compiled = self.compile_stage(stage, naga_stage, &desc.layout.binding_map)?;
+            vk_stages.push(compiled.create_info);
+            compiled_stages.push(compiled);
+        }
+
+        // Build shader group create infos
+        let vk_groups: Vec<vk::RayTracingShaderGroupCreateInfoKHR> = desc
+            .groups
+            .iter()
+            .map(|g| {
+                let mut info = vk::RayTracingShaderGroupCreateInfoKHR::default()
+                    .general_shader(vk::SHADER_UNUSED_KHR)
+                    .closest_hit_shader(vk::SHADER_UNUSED_KHR)
+                    .any_hit_shader(vk::SHADER_UNUSED_KHR)
+                    .intersection_shader(vk::SHADER_UNUSED_KHR);
+
+                info.ty = match g.group_type {
+                    wgt::RayTracingShaderGroupType::General => {
+                        vk::RayTracingShaderGroupTypeKHR::GENERAL
+                    }
+                    wgt::RayTracingShaderGroupType::TrianglesHitGroup => {
+                        vk::RayTracingShaderGroupTypeKHR::TRIANGLES_HIT_GROUP
+                    }
+                    wgt::RayTracingShaderGroupType::ProceduralHitGroup => {
+                        vk::RayTracingShaderGroupTypeKHR::PROCEDURAL_HIT_GROUP
+                    }
+                };
+
+                if let Some(idx) = g.general_stage_index {
+                    info.general_shader = idx;
+                }
+                if let Some(idx) = g.closest_hit_stage_index {
+                    info.closest_hit_shader = idx;
+                }
+                if let Some(idx) = g.any_hit_stage_index {
+                    info.any_hit_shader = idx;
+                }
+                if let Some(idx) = g.intersection_stage_index {
+                    info.intersection_shader = idx;
+                }
+                info
+            })
+            .collect();
+
+        let create_info = vk::RayTracingPipelineCreateInfoKHR::default()
+            .stages(&vk_stages)
+            .groups(&vk_groups)
+            .max_pipeline_ray_recursion_depth(desc.max_pipeline_ray_recursion_depth)
+            .layout(desc.layout.raw);
+
+        let pipeline_cache = desc
+            .cache
+            .map(|it| it.raw)
+            .unwrap_or(vk::PipelineCache::null());
+
+        let raw = {
+            profiling::scope!("vkCreateRayTracingPipelinesKHR");
+            unsafe {
+                rt_fns.create_ray_tracing_pipelines(
+                    vk::DeferredOperationKHR::null(),
+                    pipeline_cache,
+                    core::slice::from_ref(&create_info),
+                    None,
+                )
+            }
+            .map_err(|(_, e)| super::map_pipeline_err(e))?
+        };
+
+        let raw = raw[0];
+        if let Some(label) = desc.label {
+            unsafe { self.shared.set_object_name(raw, label) };
+        }
+
+        // Clean up temp shader modules
+        for compiled in compiled_stages {
+            if let Some(raw_module) = compiled.temp_raw_module {
+                unsafe { self.shared.raw.destroy_shader_module(raw_module, None) };
+            }
+        }
+
+        Ok(super::RayTracingPipeline { raw })
+    }
+
+    unsafe fn destroy_ray_tracing_pipeline(&self, pipeline: super::RayTracingPipeline) {
+        unsafe { self.shared.raw.destroy_pipeline(pipeline.raw, None) };
+    }
+
+    unsafe fn get_ray_tracing_shader_group_handles(
+        &self,
+        pipeline: &super::RayTracingPipeline,
+        first: u32,
+        count: u32,
+    ) -> Result<Vec<u8>, crate::DeviceError> {
+        let rt_fns = self
+            .shared
+            .extension_fns
+            .ray_tracing
+            .as_ref()
+            .and_then(|rt| rt.ray_tracing_pipeline.as_ref())
+            .expect("ray tracing pipeline extension not loaded");
+
+        // Each handle is shader_group_handle_size bytes (typically 32)
+        // For now use a fixed 32-byte handle size (Vulkan minimum)
+        let handle_size = 32u32;
+        let data_size = (count * handle_size) as usize;
+
+        unsafe {
+            rt_fns.get_ray_tracing_shader_group_handles(
+                pipeline.raw,
+                first,
+                count,
+                data_size,
+            )
+        }
+        .map_err(super::map_host_device_oom_and_ioca_err)
+    }
+
+    unsafe fn get_buffer_device_address(
+        &self,
+        buffer: &super::Buffer,
+    ) -> wgt::BufferAddress {
+        let rt_fns = self
+            .shared
+            .extension_fns
+            .ray_tracing
+            .as_ref()
+            .expect("ray tracing extension not loaded");
+
+        unsafe {
+            rt_fns
+                .buffer_device_address
+                .get_buffer_device_address(
+                    &vk::BufferDeviceAddressInfo::default().buffer(buffer.raw),
+                )
+        }
+    }
+
     unsafe fn create_pipeline_cache(
         &self,
         desc: &crate::PipelineCacheDescriptor<'_>,

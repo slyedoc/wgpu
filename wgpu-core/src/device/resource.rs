@@ -4002,6 +4002,101 @@ impl Device {
         Ok(pipeline)
     }
 
+    pub fn create_ray_tracing_pipeline(
+        self: &Arc<Self>,
+        desc: pipeline::ResolvedRayTracingPipelineDescriptor,
+    ) -> Result<Arc<pipeline::RayTracingPipeline>, pipeline::CreateRayTracingPipelineError> {
+        self.check_is_valid()?;
+
+        self.require_features(wgt::Features::EXPERIMENTAL_RAY_TRACING_PIPELINE)?;
+
+        // Validate and collect shader modules
+        let mut shader_modules: Vec<Arc<pipeline::ShaderModule>> = Vec::new();
+        for stage_desc in &desc.stages {
+            stage_desc.module.same_device(self)?;
+            shader_modules.push(stage_desc.module.clone());
+        }
+
+        let pipeline_layout = match desc.layout {
+            Some(pipeline_layout) => {
+                pipeline_layout.same_device(self)?;
+                pipeline_layout
+            }
+            None => {
+                return Err(pipeline::CreateRayTracingPipelineError::Internal(
+                    "Ray tracing pipelines require an explicit pipeline layout".to_string(),
+                ));
+            }
+        };
+
+        let cache = match desc.cache {
+            Some(cache) => {
+                cache.same_device(self)?;
+                Some(cache)
+            }
+            None => None,
+        };
+
+        // Build HAL stages
+        let hal_stages: Vec<hal::ProgrammableStage<dyn hal::DynShaderModule>> = desc
+            .stages
+            .iter()
+            .map(|s| {
+                hal::ProgrammableStage {
+                    module: s.module.raw(),
+                    entry_point: s
+                        .entry_point
+                        .as_ref()
+                        .map(|ep| ep.as_ref())
+                        .unwrap_or("main"),
+                    constants: &s.constants,
+                    zero_initialize_workgroup_memory: false,
+                }
+            })
+            .collect();
+
+        let pipeline_desc = hal::RayTracingPipelineDescriptor {
+            label: desc.label.to_hal(self.instance_flags),
+            layout: pipeline_layout.raw(),
+            stages: &hal_stages,
+            groups: &desc.groups,
+            max_pipeline_ray_recursion_depth: desc.max_pipeline_ray_recursion_depth,
+            cache: cache.as_ref().map(|it| it.raw()),
+        };
+
+        let raw = unsafe { self.raw().create_ray_tracing_pipeline(&pipeline_desc) }.map_err(
+            |err| match err {
+                hal::PipelineError::Device(error) => {
+                    pipeline::CreateRayTracingPipelineError::Device(self.handle_hal_error(error))
+                }
+                hal::PipelineError::Linkage(_stages, msg) => {
+                    pipeline::CreateRayTracingPipelineError::Internal(msg)
+                }
+                hal::PipelineError::EntryPoint(_stage) => {
+                    pipeline::CreateRayTracingPipelineError::Internal(
+                        ENTRYPOINT_FAILURE_ERROR.to_string(),
+                    )
+                }
+                hal::PipelineError::PipelineConstants(_stages, msg) => {
+                    pipeline::CreateRayTracingPipelineError::Internal(msg)
+                }
+            },
+        )?;
+
+        let pipeline = pipeline::RayTracingPipeline {
+            raw: ManuallyDrop::new(raw),
+            layout: pipeline_layout,
+            device: self.clone(),
+            _shader_modules: shader_modules,
+            label: desc.label.to_string(),
+            tracking_data: TrackingData::new(
+                self.tracker_indices.ray_tracing_pipelines.clone(),
+            ),
+        };
+
+        Ok(Arc::new(pipeline))
+    }
+
     pub fn create_render_pipeline(
         self: &Arc<Self>,
         desc: pipeline::ResolvedGeneralRenderPipelineDescriptor,

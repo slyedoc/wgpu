@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, string::String, sync::Arc, vec};
+use alloc::{boxed::Box, string::String, sync::Arc, vec, vec::Vec};
 #[cfg(wgpu_core)]
 use core::ops::Deref;
 use core::{error, fmt, future::Future, marker::PhantomData};
@@ -270,6 +270,38 @@ impl Device {
     pub fn create_compute_pipeline(&self, desc: &ComputePipelineDescriptor<'_>) -> ComputePipeline {
         let pipeline = self.inner.create_compute_pipeline(desc);
         ComputePipeline { inner: pipeline }
+    }
+
+    /// Creates a [`RayTracingPipeline`].
+    #[must_use]
+    pub fn create_ray_tracing_pipeline(
+        &self,
+        desc: &RayTracingPipelineDescriptor<'_>,
+    ) -> RayTracingPipeline {
+        let pipeline = self.inner.create_ray_tracing_pipeline(desc);
+        RayTracingPipeline { inner: pipeline }
+    }
+
+    /// Returns the raw shader group handle data for building shader binding tables.
+    ///
+    /// Each handle is `shader_group_handle_size` bytes (typically 32 on most hardware).
+    /// The returned data should be written into a buffer to create the SBT.
+    pub fn get_ray_tracing_shader_group_handles(
+        &self,
+        pipeline: &RayTracingPipeline,
+        first: u32,
+        count: u32,
+    ) -> Vec<u8> {
+        self.inner
+            .get_ray_tracing_shader_group_handles(&pipeline.inner, first, count)
+    }
+
+    /// Returns the device address of a buffer.
+    ///
+    /// The buffer must have been created with `SHADER_BINDING_TABLE` usage (or similar).
+    /// Returns 0 if buffer device addresses are not supported on this backend.
+    pub fn get_buffer_device_address(&self, buffer: &Buffer) -> wgt::BufferAddress {
+        self.inner.get_buffer_device_address(&buffer.inner)
     }
 
     /// Creates a [`Buffer`].

@@ -567,6 +567,12 @@ pub struct CoreComputePipeline {
 }
 
 #[derive(Debug)]
+pub struct CoreRayTracingPipeline {
+    pub(crate) context: ContextWgpuCore,
+    id: wgc::id::RayTracingPipelineId,
+}
+
+#[derive(Debug)]
 pub struct CoreRenderPipeline {
     pub(crate) context: ContextWgpuCore,
     id: wgc::id::RenderPipelineId,
@@ -759,6 +765,7 @@ crate::cmp::impl_eq_ord_hash_proxy!(CoreQuerySet => .id);
 crate::cmp::impl_eq_ord_hash_proxy!(CorePipelineLayout => .id);
 crate::cmp::impl_eq_ord_hash_proxy!(CoreRenderPipeline => .id);
 crate::cmp::impl_eq_ord_hash_proxy!(CoreComputePipeline => .id);
+crate::cmp::impl_eq_ord_hash_proxy!(CoreRayTracingPipeline => .id);
 crate::cmp::impl_eq_ord_hash_proxy!(CorePipelineCache => .id);
 crate::cmp::impl_eq_ord_hash_proxy!(CoreCommandEncoder => .id);
 crate::cmp::impl_eq_ord_hash_proxy!(CoreComputePass => .id);
@@ -1569,6 +1576,84 @@ impl dispatch::DeviceInterface for CoreDevice {
             error_sink: Arc::clone(&self.error_sink),
         }
         .into()
+    }
+
+    fn create_ray_tracing_pipeline(
+        &self,
+        desc: &crate::RayTracingPipelineDescriptor<'_>,
+    ) -> dispatch::DispatchRayTracingPipeline {
+        use wgc::pipeline as pipe;
+
+        let stages: Vec<pipe::ProgrammableStageDescriptor<'_>> = desc
+            .stages
+            .iter()
+            .map(|s| {
+                let constants = s
+                    .compilation_options
+                    .constants
+                    .iter()
+                    .map(|&(key, value)| (String::from(key), value))
+                    .collect();
+                pipe::ProgrammableStageDescriptor {
+                    module: s.module.inner.as_core().id,
+                    entry_point: s.entry_point.map(Borrowed),
+                    constants,
+                    zero_initialize_workgroup_memory: false,
+                }
+            })
+            .collect();
+
+        let descriptor = pipe::RayTracingPipelineDescriptor {
+            label: desc.label.map(Borrowed),
+            layout: desc.layout.map(|l| l.inner.as_core().id),
+            stages,
+            groups: desc.groups.to_vec(),
+            max_pipeline_ray_recursion_depth: desc.max_pipeline_ray_recursion_depth,
+            cache: desc.cache.map(|c| c.inner.as_core().id),
+        };
+
+        let (id, error) = self
+            .context
+            .0
+            .device_create_ray_tracing_pipeline(self.id, &descriptor, None);
+
+        if let Some(cause) = error {
+            self.context.handle_error(
+                &self.error_sink,
+                cause,
+                desc.label,
+                "Device::create_ray_tracing_pipeline",
+            );
+        }
+
+        CoreRayTracingPipeline {
+            context: self.context.clone(),
+            id,
+        }
+        .into()
+    }
+
+    fn get_ray_tracing_shader_group_handles(
+        &self,
+        pipeline: &dispatch::DispatchRayTracingPipeline,
+        first: u32,
+        count: u32,
+    ) -> Vec<u8> {
+        self.context
+            .0
+            .device_get_ray_tracing_shader_group_handles(
+                self.id,
+                pipeline.as_core().id,
+                first,
+                count,
+            )
+            .unwrap_or_default()
+    }
+
+    fn get_buffer_device_address(&self, buffer: &dispatch::DispatchBuffer) -> wgt::BufferAddress {
+        self.context
+            .0
+            .device_get_buffer_device_address(self.id, buffer.as_core().id)
     }
 
     unsafe fn create_pipeline_cache(
@@ -2452,6 +2537,14 @@ impl Drop for CoreComputePipeline {
     }
 }
 
+impl dispatch::RayTracingPipelineInterface for CoreRayTracingPipeline {}
+
+impl Drop for CoreRayTracingPipeline {
+    fn drop(&mut self) {
+        self.context.0.ray_tracing_pipeline_drop(self.id)
+    }
+}
+
 impl dispatch::PipelineCacheInterface for CorePipelineCache {
     fn get_data(&self) -> Option<Vec<u8>> {
         self.context.0.pipeline_cache_get_data(self.id)
@@ -2891,6 +2984,43 @@ impl dispatch::CommandEncoderInterface for CoreCommandEncoder {
                 &self.error_sink,
                 cause,
                 "CommandEncoder::build_acceleration_structures_unsafe_tlas",
+            );
+        }
+    }
+
+    fn trace_rays(
+        &self,
+        pipeline: &dispatch::DispatchRayTracingPipeline,
+        bind_groups: &[(&dispatch::DispatchBindGroup, &[wgt::DynamicOffset])],
+        raygen_sbt: &wgt::ShaderBindingTableRegion,
+        miss_sbt: &wgt::ShaderBindingTableRegion,
+        hit_sbt: &wgt::ShaderBindingTableRegion,
+        callable_sbt: &wgt::ShaderBindingTableRegion,
+        width: u32,
+        height: u32,
+        depth: u32,
+    ) {
+        let resolved_bind_groups: Vec<_> = bind_groups
+            .iter()
+            .map(|(bg, offsets)| (bg.as_core().id, offsets.to_vec()))
+            .collect();
+
+        if let Err(cause) = self.context.0.command_encoder_trace_rays(
+            self.id,
+            pipeline.as_core().id,
+            &resolved_bind_groups,
+            *raygen_sbt,
+            *miss_sbt,
+            *hit_sbt,
+            *callable_sbt,
+            width,
+            height,
+            depth,
+        ) {
+            self.context.handle_error_nolabel(
+                &self.error_sink,
+                cause,
+                "CommandEncoder::trace_rays",
             );
         }
     }

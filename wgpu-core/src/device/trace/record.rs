@@ -274,10 +274,32 @@ impl IntoTrace for ArcCommand {
                 buffer_transitions: _,
                 texture_transitions: _,
             } => {
-                // TransitionResources does not exist in Command, so skip or handle as needed.
-                // If you want to ignore, you could panic or return a default.
                 panic!("TransitionResources cannot be converted to Command");
             }
+            ArcCommand::TraceRays {
+                pipeline,
+                bind_groups,
+                raygen_sbt,
+                miss_sbt,
+                hit_sbt,
+                callable_sbt,
+                width,
+                height,
+                depth,
+            } => Command::TraceRays {
+                pipeline: pipeline.to_trace(),
+                bind_groups: bind_groups
+                    .into_iter()
+                    .map(|(bg, offsets)| (bg.to_trace(), offsets))
+                    .collect(),
+                raygen_sbt,
+                miss_sbt,
+                hit_sbt,
+                callable_sbt,
+                width,
+                height,
+                depth,
+            },
         }
     }
 }

@@ -1304,6 +1304,21 @@ bitflags_array! {
         #[name("wgpu-ray-hit-vertex-return")]
         const EXPERIMENTAL_RAY_HIT_VERTEX_RETURN = 1 << 49;
 
+        /// ***THIS IS EXPERIMENTAL:*** Features enabled by this may have
+        /// major bugs in it and are expected to be subject to breaking changes, suggestions
+        /// for the API exposed by this should be posted on [the ray-tracing issue](https://github.com/gfx-rs/wgpu/issues/1040)
+        ///
+        /// Allows for the creation of ray tracing pipelines with ray generation, any-hit,
+        /// closest-hit, and miss shaders. Requires [`Features::EXPERIMENTAL_RAY_QUERY`] for
+        /// acceleration structure support.
+        ///
+        /// Supported platforms:
+        /// - Vulkan
+        ///
+        /// This is a native-only feature.
+        #[name("wgpu-ray-tracing-pipeline")]
+        const EXPERIMENTAL_RAY_TRACING_PIPELINE = 1 << 24;
+
         /// Enables multiview in mesh shader pipelines
         ///
         /// Supported platforms:
@@ -1842,6 +1857,7 @@ impl Features {
                 | FeaturesWGPU::EXPERIMENTAL_MESH_SHADER_POINTS.bits()
                 | FeaturesWGPU::EXPERIMENTAL_RAY_QUERY.bits()
                 | FeaturesWGPU::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN.bits()
+                | FeaturesWGPU::EXPERIMENTAL_RAY_TRACING_PIPELINE.bits()
                 | FeaturesWGPU::EXPERIMENTAL_COOPERATIVE_MATRIX.bits(),
             FeaturesWebGPU::empty().bits(),
         ]))

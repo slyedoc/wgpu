@@ -34,6 +34,8 @@ mod common_pipeline;
 mod compute_pass;
 mod compute_pipeline;
 mod device;
+// Not a root type name collision - ray_tracing_pipeline is separate from render_pipeline.
+mod ray_tracing_pipeline;
 mod external_texture;
 mod instance;
 mod pipeline_cache;
@@ -64,6 +66,7 @@ pub use common_pipeline::*;
 pub use compute_pass::*;
 pub use compute_pipeline::*;
 pub use device::*;
+pub use ray_tracing_pipeline::*;
 pub use external_texture::*;
 pub use instance::*;
 pub use pipeline_cache::*;

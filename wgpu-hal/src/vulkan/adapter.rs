@@ -105,6 +105,7 @@ pub struct PhysicalDeviceFeatures {
     zero_initialize_workgroup_memory:
         Option<vk::PhysicalDeviceZeroInitializeWorkgroupMemoryFeatures<'static>>,
     position_fetch: Option<vk::PhysicalDeviceRayTracingPositionFetchFeaturesKHR<'static>>,
+    ray_tracing_pipeline: Option<vk::PhysicalDeviceRayTracingPipelineFeaturesKHR<'static>>,
 
     /// Features provided by `VK_KHR_shader_atomic_int64`, promoted to Vulkan 1.2.
     shader_atomic_int64: Option<vk::PhysicalDeviceShaderAtomicInt64Features<'static>>,
@@ -196,6 +197,9 @@ impl PhysicalDeviceFeatures {
             info = info.push_next(feature);
         }
         if let Some(ref mut feature) = self.position_fetch {
+            info = info.push_next(feature);
+        }
+        if let Some(ref mut feature) = self.ray_tracing_pipeline {
             info = info.push_next(feature);
         }
         if let Some(ref mut feature) = self.shader_image_atomic_int64 {
@@ -540,6 +544,16 @@ impl PhysicalDeviceFeatures {
             } else {
                 None
             },
+            ray_tracing_pipeline: if enabled_extensions
+                .contains(&khr::ray_tracing_pipeline::NAME)
+            {
+                Some(
+                    vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::default()
+                        .ray_tracing_pipeline(true),
+                )
+            } else {
+                None
+            },
             mesh_shader: if enabled_extensions.contains(&ext::mesh_shader::NAME) {
                 let needed = requested_features.contains(wgt::Features::EXPERIMENTAL_MESH_SHADER);
                 let multiview_needed =
@@ -788,6 +802,10 @@ impl PhysicalDeviceFeatures {
         features.set(
             F::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN,
             caps.supports_extension(khr::ray_tracing_position_fetch::NAME),
+        );
+        features.set(
+            F::EXPERIMENTAL_RAY_TRACING_PIPELINE,
+            caps.supports_extension(khr::ray_tracing_pipeline::NAME),
         );
 
         if let Some(ref descriptor_indexing) = self.descriptor_indexing {
@@ -1332,6 +1350,10 @@ impl PhysicalDeviceProperties {
             extensions.push(khr::ray_tracing_position_fetch::NAME)
         }
 
+        if requested_features.contains(wgt::Features::EXPERIMENTAL_RAY_TRACING_PIPELINE) {
+            extensions.push(khr::ray_tracing_pipeline::NAME);
+        }
+
         // Require `VK_EXT_conservative_rasterization` if the associated feature was requested
         if requested_features.contains(wgt::Features::CONSERVATIVE_RASTERIZATION) {
             extensions.push(ext::conservative_rasterization::NAME);
@@ -1713,6 +1735,8 @@ impl PhysicalDeviceProperties {
             max_blas_geometry_count,
             max_tlas_instance_count,
             max_acceleration_structures_per_shader_stage,
+            // TODO: query VkPhysicalDeviceRayTracingPipelinePropertiesKHR
+            max_ray_tracing_pipeline_recursion_depth: 1,
 
             max_multiview_view_count,
         })
@@ -2512,6 +2536,16 @@ impl super::Adapter {
                     &self.instance.raw,
                     &raw_device,
                 ),
+                ray_tracing_pipeline: if enabled_extensions
+                    .contains(&khr::ray_tracing_pipeline::NAME)
+                {
+                    Some(khr::ray_tracing_pipeline::Device::new(
+                        &self.instance.raw,
+                        &raw_device,
+                    ))
+                } else {
+                    None
+                },
             })
         } else {
             None
@@ -2594,6 +2628,9 @@ impl super::Adapter {
             if features.contains(wgt::Features::EXPERIMENTAL_RAY_QUERY) {
                 capabilities.push(spv::Capability::RayQueryKHR);
             }
+            if features.contains(wgt::Features::EXPERIMENTAL_RAY_TRACING_PIPELINE) {
+                capabilities.push(spv::Capability::RayTracingKHR);
+            }
 
             if features.contains(wgt::Features::SHADER_INT64) {
                 capabilities.push(spv::Capability::Int64);
@@ -2658,6 +2695,9 @@ impl super::Adapter {
             );
             if features.contains(wgt::Features::EXPERIMENTAL_RAY_QUERY) {
                 capabilities.push(spv::Capability::RayQueryKHR);
+            }
+            if features.contains(wgt::Features::EXPERIMENTAL_RAY_TRACING_PIPELINE) {
+                capabilities.push(spv::Capability::RayTracingKHR);
             }
             if features.contains(wgt::Features::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN) {
                 capabilities.push(spv::Capability::RayQueryPositionFetchKHR)

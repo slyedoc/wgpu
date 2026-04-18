@@ -1632,6 +1632,23 @@ impl crate::CommandEncoder for super::CommandEncoder {
         }
     }
 
+    unsafe fn set_ray_tracing_pipeline(&mut self, _pipeline: &super::RayTracingPipeline) {
+        unimplemented!("ray tracing pipelines not supported on this backend")
+    }
+
+    unsafe fn trace_rays(
+        &mut self,
+        _raygen_sbt: &wgt::ShaderBindingTableRegion,
+        _miss_sbt: &wgt::ShaderBindingTableRegion,
+        _hit_sbt: &wgt::ShaderBindingTableRegion,
+        _callable_sbt: &wgt::ShaderBindingTableRegion,
+        _width: u32,
+        _height: u32,
+        _depth: u32,
+    ) {
+        unimplemented!("ray tracing pipelines not supported on this backend")
+    }
+
     unsafe fn build_acceleration_structures<'a, T>(
         &mut self,
         _descriptor_count: u32,

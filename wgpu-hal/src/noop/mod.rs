@@ -61,6 +61,7 @@ impl crate::Api for Api {
     type ShaderModule = Resource;
     type RenderPipeline = Resource;
     type ComputePipeline = Resource;
+    type RayTracingPipeline = Resource;
 }
 
 crate::impl_dyn_resource!(Buffer, CommandBuffer, Context, Fence, Resource);
@@ -71,6 +72,7 @@ impl crate::DynBindGroupLayout for Resource {}
 impl crate::DynBuffer for Buffer {}
 impl crate::DynCommandBuffer for CommandBuffer {}
 impl crate::DynComputePipeline for Resource {}
+impl crate::DynRayTracingPipeline for Resource {}
 impl crate::DynFence for Fence {}
 impl crate::DynPipelineCache for Resource {}
 impl crate::DynPipelineLayout for Resource {}
@@ -389,6 +391,27 @@ impl crate::Device for Context {
         Ok(Resource)
     }
     unsafe fn destroy_compute_pipeline(&self, pipeline: Resource) {}
+    unsafe fn create_ray_tracing_pipeline(
+        &self,
+        _desc: &crate::RayTracingPipelineDescriptor<Resource, Resource, Resource>,
+    ) -> Result<Resource, crate::PipelineError> {
+        Ok(Resource)
+    }
+    unsafe fn destroy_ray_tracing_pipeline(&self, _pipeline: Resource) {}
+    unsafe fn get_ray_tracing_shader_group_handles(
+        &self,
+        _pipeline: &Resource,
+        _first: u32,
+        _count: u32,
+    ) -> Result<Vec<u8>, crate::DeviceError> {
+        Ok(Vec::new())
+    }
+    unsafe fn get_buffer_device_address(
+        &self,
+        _buffer: &Buffer,
+    ) -> wgt::BufferAddress {
+        0
+    }
     unsafe fn create_pipeline_cache(
         &self,
         desc: &crate::PipelineCacheDescriptor<'_>,

@@ -288,7 +288,8 @@ pub use dynamic::{
     DynAccelerationStructure, DynAcquiredSurfaceTexture, DynAdapter, DynBindGroup,
     DynBindGroupLayout, DynBuffer, DynCommandBuffer, DynCommandEncoder, DynComputePipeline,
     DynDevice, DynExposedAdapter, DynFence, DynInstance, DynOpenDevice, DynPipelineCache,
-    DynPipelineLayout, DynQuerySet, DynQueue, DynRenderPipeline, DynResource, DynSampler,
+    DynPipelineLayout, DynQuerySet, DynQueue, DynRayTracingPipeline, DynRenderPipeline,
+    DynResource, DynSampler,
     DynShaderModule, DynSurface, DynSurfaceTexture, DynTexture, DynTextureView,
 };
 
@@ -640,6 +641,7 @@ pub trait Api: Clone + fmt::Debug + Sized + WasmNotSendSync + 'static {
     type ShaderModule: DynShaderModule;
     type RenderPipeline: DynRenderPipeline;
     type ComputePipeline: DynComputePipeline;
+    type RayTracingPipeline: DynRayTracingPipeline;
     type PipelineCache: DynPipelineCache;
 
     type AccelerationStructure: DynAccelerationStructure + 'static;
@@ -1063,6 +1065,36 @@ pub trait Device: WasmNotSendSync {
         >,
     ) -> Result<<Self::A as Api>::ComputePipeline, PipelineError>;
     unsafe fn destroy_compute_pipeline(&self, pipeline: <Self::A as Api>::ComputePipeline);
+
+    #[allow(clippy::type_complexity)]
+    unsafe fn create_ray_tracing_pipeline(
+        &self,
+        desc: &RayTracingPipelineDescriptor<
+            <Self::A as Api>::PipelineLayout,
+            <Self::A as Api>::ShaderModule,
+            <Self::A as Api>::PipelineCache,
+        >,
+    ) -> Result<<Self::A as Api>::RayTracingPipeline, PipelineError>;
+    unsafe fn destroy_ray_tracing_pipeline(
+        &self,
+        pipeline: <Self::A as Api>::RayTracingPipeline,
+    );
+    /// Returns the raw shader group handle data for building shader binding tables.
+    unsafe fn get_ray_tracing_shader_group_handles(
+        &self,
+        pipeline: &<Self::A as Api>::RayTracingPipeline,
+        first: u32,
+        count: u32,
+    ) -> Result<Vec<u8>, DeviceError>;
+
+    /// Returns the device address of a buffer.
+    ///
+    /// The buffer must have been created with appropriate usage flags.
+    /// Returns 0 if buffer device addresses are not supported.
+    unsafe fn get_buffer_device_address(
+        &self,
+        buffer: &<Self::A as Api>::Buffer,
+    ) -> wgt::BufferAddress;
 
     unsafe fn create_pipeline_cache(
         &self,
@@ -1728,6 +1760,24 @@ pub trait CommandEncoder: WasmNotSendSync + fmt::Debug {
         &mut self,
         buffer: &<Self::A as Api>::Buffer,
         offset: wgt::BufferAddress,
+    );
+
+    // --- Ray Tracing Pipeline ---
+
+    unsafe fn set_ray_tracing_pipeline(
+        &mut self,
+        pipeline: &<Self::A as Api>::RayTracingPipeline,
+    );
+
+    unsafe fn trace_rays(
+        &mut self,
+        raygen_sbt: &wgt::ShaderBindingTableRegion,
+        miss_sbt: &wgt::ShaderBindingTableRegion,
+        hit_sbt: &wgt::ShaderBindingTableRegion,
+        callable_sbt: &wgt::ShaderBindingTableRegion,
+        width: u32,
+        height: u32,
+        depth: u32,
     );
 
     /// To get the required sizes for the buffer allocations use `get_acceleration_structure_build_sizes` per descriptor
@@ -2472,6 +2522,27 @@ pub struct ComputePipelineDescriptor<
     /// The compiled compute stage and its entry point.
     pub stage: ProgrammableStage<'a, M>,
     /// The cache which will be used and filled when compiling this pipeline
+    pub cache: Option<&'a Pc>,
+}
+
+/// Describes a ray tracing pipeline.
+#[derive(Clone, Debug)]
+pub struct RayTracingPipelineDescriptor<
+    'a,
+    Pl: DynPipelineLayout + ?Sized,
+    M: DynShaderModule + ?Sized,
+    Pc: DynPipelineCache + ?Sized,
+> {
+    pub label: Label<'a>,
+    /// The layout of bind groups for this pipeline.
+    pub layout: &'a Pl,
+    /// All shader stages used by this pipeline.
+    pub stages: &'a [ProgrammableStage<'a, M>],
+    /// Shader group definitions mapping stages into SBT records.
+    pub groups: &'a [wgt::RayTracingShaderGroupDescriptor],
+    /// Maximum ray recursion depth.
+    pub max_pipeline_ray_recursion_depth: u32,
+    /// The cache which will be used and filled when compiling this pipeline.
     pub cache: Option<&'a Pc>,
 }
 

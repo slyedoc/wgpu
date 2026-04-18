@@ -1,4 +1,4 @@
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec::Vec};
 use core::ops::Range;
 
 use crate::{
@@ -379,6 +379,47 @@ impl CommandEncoder {
     ) {
         self.inner
             .build_acceleration_structures(&mut blas.into_iter(), &mut tlas.into_iter());
+    }
+
+    /// Dispatch a ray tracing pipeline.
+    ///
+    /// This binds the given RT pipeline and bind groups, then dispatches `trace_rays`
+    /// with the provided shader binding table regions and dimensions.
+    ///
+    /// # Safety
+    ///
+    /// - Requires [`Features::EXPERIMENTAL_RAY_TRACING_PIPELINE`].
+    /// - The SBT regions must reference valid buffer device addresses.
+    /// - The pipeline and bind groups must be compatible.
+    ///
+    /// [`Features::EXPERIMENTAL_RAY_TRACING_PIPELINE`]: wgt::Features::EXPERIMENTAL_RAY_TRACING_PIPELINE
+    pub fn trace_rays(
+        &mut self,
+        pipeline: &RayTracingPipeline,
+        bind_groups: &[(&BindGroup, &[wgt::DynamicOffset])],
+        raygen_sbt: &wgt::ShaderBindingTableRegion,
+        miss_sbt: &wgt::ShaderBindingTableRegion,
+        hit_sbt: &wgt::ShaderBindingTableRegion,
+        callable_sbt: &wgt::ShaderBindingTableRegion,
+        width: u32,
+        height: u32,
+        depth: u32,
+    ) {
+        let dispatch_bind_groups: Vec<_> = bind_groups
+            .iter()
+            .map(|(bg, offsets)| (&bg.inner, *offsets))
+            .collect();
+        self.inner.trace_rays(
+            &pipeline.inner,
+            &dispatch_bind_groups,
+            raygen_sbt,
+            miss_sbt,
+            hit_sbt,
+            callable_sbt,
+            width,
+            height,
+            depth,
+        );
     }
 
     /// Transition resources to an underlying hal resource state.

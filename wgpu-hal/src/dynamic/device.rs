@@ -3,9 +3,10 @@ use alloc::{borrow::ToOwned as _, boxed::Box, vec::Vec};
 use crate::{
     AccelerationStructureBuildSizes, AccelerationStructureDescriptor, Api, BindGroupDescriptor,
     BindGroupLayoutDescriptor, BufferDescriptor, BufferMapping, CommandEncoderDescriptor,
-    ComputePipelineDescriptor, Device, DeviceError, FenceValue,
+    ComputePipelineDescriptor, Device, DeviceError, FenceValue, ProgrammableStage,
     GetAccelerationStructureBuildSizesDescriptor, Label, MemoryRange, PipelineCacheDescriptor,
-    PipelineCacheError, PipelineError, PipelineLayoutDescriptor, RenderPipelineDescriptor,
+    PipelineCacheError, PipelineError, PipelineLayoutDescriptor, RayTracingPipelineDescriptor,
+    RenderPipelineDescriptor,
     SamplerDescriptor, ShaderError, ShaderInput, ShaderModuleDescriptor, TextureDescriptor,
     TextureViewDescriptor, TlasInstance,
 };
@@ -13,7 +14,8 @@ use crate::{
 use super::{
     DynAccelerationStructure, DynBindGroup, DynBindGroupLayout, DynBuffer, DynCommandEncoder,
     DynComputePipeline, DynFence, DynPipelineCache, DynPipelineLayout, DynQuerySet, DynQueue,
-    DynRenderPipeline, DynResource, DynResourceExt as _, DynSampler, DynShaderModule, DynTexture,
+    DynRayTracingPipeline, DynRenderPipeline, DynResource, DynResourceExt as _, DynSampler,
+    DynShaderModule, DynTexture,
     DynTextureView,
 };
 
@@ -111,6 +113,28 @@ pub trait DynDevice: DynResource {
         >,
     ) -> Result<Box<dyn DynComputePipeline>, PipelineError>;
     unsafe fn destroy_compute_pipeline(&self, pipeline: Box<dyn DynComputePipeline>);
+
+    #[allow(clippy::type_complexity)]
+    unsafe fn create_ray_tracing_pipeline(
+        &self,
+        desc: &RayTracingPipelineDescriptor<
+            dyn DynPipelineLayout,
+            dyn DynShaderModule,
+            dyn DynPipelineCache,
+        >,
+    ) -> Result<Box<dyn DynRayTracingPipeline>, PipelineError>;
+    unsafe fn destroy_ray_tracing_pipeline(&self, pipeline: Box<dyn DynRayTracingPipeline>);
+    unsafe fn get_ray_tracing_shader_group_handles(
+        &self,
+        pipeline: &dyn DynRayTracingPipeline,
+        first: u32,
+        count: u32,
+    ) -> Result<Vec<u8>, DeviceError>;
+
+    unsafe fn get_buffer_device_address(
+        &self,
+        buffer: &dyn DynBuffer,
+    ) -> wgt::BufferAddress;
 
     unsafe fn create_pipeline_cache(
         &self,
@@ -440,6 +464,55 @@ impl<D: Device + DynResource> DynDevice for D {
 
     unsafe fn destroy_compute_pipeline(&self, pipeline: Box<dyn DynComputePipeline>) {
         unsafe { D::destroy_compute_pipeline(self, pipeline.unbox()) };
+    }
+
+    unsafe fn create_ray_tracing_pipeline(
+        &self,
+        desc: &RayTracingPipelineDescriptor<
+            dyn DynPipelineLayout,
+            dyn DynShaderModule,
+            dyn DynPipelineCache,
+        >,
+    ) -> Result<Box<dyn DynRayTracingPipeline>, PipelineError> {
+        let stages: Vec<ProgrammableStage<<D::A as Api>::ShaderModule>> = desc
+            .stages
+            .iter()
+            .map(|s| s.clone().expect_downcast())
+            .collect();
+        let desc = RayTracingPipelineDescriptor {
+            label: desc.label,
+            layout: desc.layout.expect_downcast_ref(),
+            stages: &stages,
+            groups: desc.groups,
+            max_pipeline_ray_recursion_depth: desc.max_pipeline_ray_recursion_depth,
+            cache: desc.cache.as_ref().map(|c| c.expect_downcast_ref()),
+        };
+
+        unsafe { D::create_ray_tracing_pipeline(self, &desc) }
+            .map(|b| -> Box<dyn DynRayTracingPipeline> { Box::new(b) })
+    }
+
+    unsafe fn destroy_ray_tracing_pipeline(&self, pipeline: Box<dyn DynRayTracingPipeline>) {
+        unsafe { D::destroy_ray_tracing_pipeline(self, pipeline.unbox()) };
+    }
+
+    unsafe fn get_ray_tracing_shader_group_handles(
+        &self,
+        pipeline: &dyn DynRayTracingPipeline,
+        first: u32,
+        count: u32,
+    ) -> Result<Vec<u8>, DeviceError> {
+        let pipeline = pipeline
+            .expect_downcast_ref::<<D::A as Api>::RayTracingPipeline>();
+        unsafe { D::get_ray_tracing_shader_group_handles(self, pipeline, first, count) }
+    }
+
+    unsafe fn get_buffer_device_address(
+        &self,
+        buffer: &dyn DynBuffer,
+    ) -> wgt::BufferAddress {
+        let buffer = buffer.expect_downcast_ref::<<D::A as Api>::Buffer>();
+        unsafe { D::get_buffer_device_address(self, buffer) }
     }
 
     unsafe fn create_pipeline_cache(

@@ -1200,6 +1200,45 @@ impl CommandEncoder {
                             texture_transitions,
                         )?;
                     }
+                    ArcCommand::TraceRays {
+                        pipeline,
+                        bind_groups,
+                        raygen_sbt,
+                        miss_sbt,
+                        hit_sbt,
+                        callable_sbt,
+                        width,
+                        height,
+                        depth,
+                    } => {
+                        let raw_encoder = &mut state.raw_encoder;
+                        unsafe {
+                            raw_encoder
+                                .set_ray_tracing_pipeline(pipeline.raw());
+                            for (index, (bind_group, offsets)) in
+                                bind_groups.iter().enumerate()
+                            {
+                                let raw_bg = bind_group
+                                    .try_raw(state.snatch_guard)
+                                    .map_err(CommandEncoderError::from)?;
+                                raw_encoder.set_bind_group(
+                                    pipeline.layout.raw(),
+                                    index as u32,
+                                    raw_bg,
+                                    offsets,
+                                );
+                            }
+                            raw_encoder.trace_rays(
+                                &raygen_sbt,
+                                &miss_sbt,
+                                &hit_sbt,
+                                &callable_sbt,
+                                width,
+                                height,
+                                depth,
+                            );
+                        }
+                    }
                     ArcCommand::RunComputePass { .. } | ArcCommand::RunRenderPass { .. } => {
                         unreachable!()
                     }

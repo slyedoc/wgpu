@@ -1359,6 +1359,58 @@ impl crate::CommandEncoder for super::CommandEncoder {
         }
     }
 
+    unsafe fn set_ray_tracing_pipeline(&mut self, pipeline: &super::RayTracingPipeline) {
+        self.bind_point = vk::PipelineBindPoint::RAY_TRACING_KHR;
+        unsafe {
+            self.device.raw.cmd_bind_pipeline(
+                self.active,
+                vk::PipelineBindPoint::RAY_TRACING_KHR,
+                pipeline.raw,
+            )
+        };
+    }
+
+    unsafe fn trace_rays(
+        &mut self,
+        raygen_sbt: &wgt::ShaderBindingTableRegion,
+        miss_sbt: &wgt::ShaderBindingTableRegion,
+        hit_sbt: &wgt::ShaderBindingTableRegion,
+        callable_sbt: &wgt::ShaderBindingTableRegion,
+        width: u32,
+        height: u32,
+        depth: u32,
+    ) {
+        let rt_fns = self
+            .device
+            .extension_fns
+            .ray_tracing
+            .as_ref()
+            .and_then(|rt| rt.ray_tracing_pipeline.as_ref())
+            .expect("ray tracing pipeline extension not loaded");
+
+        let to_vk_sbt =
+            |r: &wgt::ShaderBindingTableRegion| -> vk::StridedDeviceAddressRegionKHR {
+                vk::StridedDeviceAddressRegionKHR {
+                    device_address: r.device_address,
+                    stride: r.stride,
+                    size: r.size,
+                }
+            };
+
+        unsafe {
+            rt_fns.cmd_trace_rays(
+                self.active,
+                &to_vk_sbt(raygen_sbt),
+                &to_vk_sbt(miss_sbt),
+                &to_vk_sbt(hit_sbt),
+                &to_vk_sbt(callable_sbt),
+                width,
+                height,
+                depth,
+            )
+        };
+    }
+
     unsafe fn copy_acceleration_structure_to_acceleration_structure(
         &mut self,
         src: &super::AccelerationStructure,

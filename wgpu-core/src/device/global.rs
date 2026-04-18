@@ -18,7 +18,8 @@ use crate::{
     pipeline::{
         self, RenderPipelineVertexProcessor, ResolvedComputePipelineDescriptor,
         ResolvedFragmentState, ResolvedGeneralRenderPipelineDescriptor, ResolvedMeshState,
-        ResolvedProgrammableStageDescriptor, ResolvedTaskState, ResolvedVertexState,
+        ResolvedProgrammableStageDescriptor, ResolvedRayTracingPipelineDescriptor,
+        ResolvedTaskState, ResolvedVertexState,
     },
     present,
     resource::{
@@ -1715,6 +1716,134 @@ impl Global {
         let id = fid.assign(Fallible::Invalid(Arc::new(desc.label.to_string())));
 
         (id, Some(error))
+    }
+
+    pub fn device_create_ray_tracing_pipeline(
+        &self,
+        device_id: DeviceId,
+        desc: &pipeline::RayTracingPipelineDescriptor,
+        id_in: Option<id::RayTracingPipelineId>,
+    ) -> (
+        id::RayTracingPipelineId,
+        Option<pipeline::CreateRayTracingPipelineError>,
+    ) {
+        profiling::scope!("Device::create_ray_tracing_pipeline");
+
+        let hub = &self.hub;
+        let fid = hub.ray_tracing_pipelines.prepare(id_in);
+
+        let error = 'error: {
+            let device = hub.devices.get(device_id);
+
+            if let Err(e) = device.check_is_valid() {
+                break 'error e.into();
+            }
+
+            let layout = desc
+                .layout
+                .map(|layout| hub.pipeline_layouts.get(layout).get())
+                .transpose();
+            let layout = match layout {
+                Ok(layout) => layout,
+                Err(e) => break 'error e.into(),
+            };
+
+            let cache = desc
+                .cache
+                .map(|cache| hub.pipeline_caches.get(cache).get())
+                .transpose();
+            let cache = match cache {
+                Ok(cache) => cache,
+                Err(e) => break 'error e.into(),
+            };
+
+            // Resolve all shader stages
+            let mut resolved_stages = Vec::new();
+            for stage_desc in &desc.stages {
+                let module = hub.shader_modules.get(stage_desc.module).get();
+                let module = match module {
+                    Ok(module) => module,
+                    Err(e) => break 'error e.into(),
+                };
+                resolved_stages.push(ResolvedProgrammableStageDescriptor {
+                    module,
+                    entry_point: stage_desc.entry_point.clone(),
+                    constants: stage_desc.constants.clone(),
+                    zero_initialize_workgroup_memory: false,
+                });
+            }
+
+            let desc = ResolvedRayTracingPipelineDescriptor {
+                label: desc.label.clone(),
+                layout,
+                stages: resolved_stages,
+                groups: desc.groups.clone(),
+                max_pipeline_ray_recursion_depth: desc.max_pipeline_ray_recursion_depth,
+                cache,
+            };
+
+            let pipeline = match device.create_ray_tracing_pipeline(desc) {
+                Ok(pipeline) => pipeline,
+                Err(e) => break 'error e,
+            };
+
+            let id = fid.assign(Fallible::Valid(pipeline));
+            api_log!("Device::create_ray_tracing_pipeline -> {id:?}");
+
+            return (id, None);
+        };
+
+        let id = fid.assign(Fallible::Invalid(Arc::new(desc.label.to_string())));
+
+        (id, Some(error))
+    }
+
+    pub fn ray_tracing_pipeline_drop(&self, pipeline_id: id::RayTracingPipelineId) {
+        profiling::scope!("RayTracingPipeline::drop");
+        api_log!("RayTracingPipeline::drop {pipeline_id:?}");
+
+        self.hub.ray_tracing_pipelines.remove(pipeline_id);
+    }
+
+    pub fn device_get_ray_tracing_shader_group_handles(
+        &self,
+        device_id: DeviceId,
+        pipeline_id: id::RayTracingPipelineId,
+        first: u32,
+        count: u32,
+    ) -> Result<Vec<u8>, DeviceError> {
+        let device = self.hub.devices.get(device_id);
+        let pipeline = self
+            .hub
+            .ray_tracing_pipelines
+            .get(pipeline_id)
+            .get()
+            .map_err(|_| DeviceError::Lost)?;
+        unsafe {
+            device
+                .raw()
+                .get_ray_tracing_shader_group_handles(pipeline.raw(), first, count)
+                .map_err(|e| device.handle_hal_error(e))
+        }
+    }
+
+    pub fn device_get_buffer_device_address(
+        &self,
+        device_id: DeviceId,
+        buffer_id: id::BufferId,
+    ) -> wgt::BufferAddress {
+        use crate::resource::RawResourceAccess;
+
+        let device = self.hub.devices.get(device_id);
+        let buffer = match self.hub.buffers.get(buffer_id).get() {
+            Ok(buffer) => buffer,
+            Err(_) => return 0,
+        };
+        let snatch_guard = device.snatchable_lock.read();
+        match buffer.raw(&snatch_guard) {
+            Some(raw) => unsafe { device.raw().get_buffer_device_address(raw) },
+            None => 0,
+        }
     }
 
     /// Get an ID of one of the bind group layouts. The ID adds a refcount,

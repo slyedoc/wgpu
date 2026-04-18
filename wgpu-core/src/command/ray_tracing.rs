@@ -58,6 +58,56 @@ impl Global {
         self.hub.tlas_s.get(tlas_id).get()
     }
 
+    pub fn command_encoder_trace_rays(
+        &self,
+        command_encoder_id: CommandEncoderId,
+        pipeline_id: crate::id::RayTracingPipelineId,
+        bind_groups: &[(crate::id::BindGroupId, Vec<wgt::DynamicOffset>)],
+        raygen_sbt: wgt::ShaderBindingTableRegion,
+        miss_sbt: wgt::ShaderBindingTableRegion,
+        hit_sbt: wgt::ShaderBindingTableRegion,
+        callable_sbt: wgt::ShaderBindingTableRegion,
+        width: u32,
+        height: u32,
+        depth: u32,
+    ) -> Result<(), EncoderStateError> {
+        profiling::scope!("CommandEncoder::trace_rays");
+
+        let hub = &self.hub;
+        let cmd_enc = hub.command_encoders.get(command_encoder_id);
+        let mut cmd_buf_data = cmd_enc.data.lock();
+
+        cmd_buf_data.push_with(|| -> Result<_, crate::command::CommandEncoderError> {
+            let pipeline = hub
+                .ray_tracing_pipelines
+                .get(pipeline_id)
+                .get()
+                .map_err(|e| crate::command::CommandEncoderError::InvalidResource(e))?;
+
+            let resolved_bind_groups: Vec<_> = bind_groups
+                .iter()
+                .map(|(bg_id, offsets)| {
+                    let bg = hub.bind_groups.get(*bg_id).get().map_err(|e| {
+                        crate::command::CommandEncoderError::InvalidResource(e)
+                    })?;
+                    Ok((bg, offsets.clone()))
+                })
+                .collect::<Result<_, crate::command::CommandEncoderError>>()?;
+
+            Ok(ArcCommand::TraceRays {
+                pipeline,
+                bind_groups: resolved_bind_groups,
+                raygen_sbt,
+                miss_sbt,
+                hit_sbt,
+                callable_sbt,
+                width,
+                height,
+                depth,
+            })
+        })
+    }
+
     pub fn command_encoder_mark_acceleration_structures_built(
         &self,
         command_encoder_id: CommandEncoderId,

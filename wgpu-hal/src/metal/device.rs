@@ -1767,6 +1767,32 @@ impl crate::Device for super::Device {
         self.counters.compute_pipelines.sub(1);
     }
 
+    unsafe fn create_ray_tracing_pipeline(
+        &self,
+        _desc: &crate::RayTracingPipelineDescriptor<
+            super::PipelineLayout,
+            super::ShaderModule,
+            super::PipelineCache,
+        >,
+    ) -> Result<super::RayTracingPipeline, crate::PipelineError> {
+        unimplemented!("ray tracing pipelines not supported on this backend")
+    }
+    unsafe fn destroy_ray_tracing_pipeline(&self, _pipeline: super::RayTracingPipeline) {}
+    unsafe fn get_ray_tracing_shader_group_handles(
+        &self,
+        _pipeline: &super::RayTracingPipeline,
+        _first: u32,
+        _count: u32,
+    ) -> Result<Vec<u8>, crate::DeviceError> {
+        unimplemented!("ray tracing pipelines not supported on this backend")
+    }
+    unsafe fn get_buffer_device_address(
+        &self,
+        _buffer: &super::Buffer,
+    ) -> wgt::BufferAddress {
+        0
+    }
+
     unsafe fn create_pipeline_cache(
         &self,
         _desc: &crate::PipelineCacheDescriptor<'_>,

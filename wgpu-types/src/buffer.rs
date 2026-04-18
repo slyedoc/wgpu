@@ -95,6 +95,9 @@ bitflags::bitflags! {
         const BLAS_INPUT = 1 << 10;
         /// Allows a buffer to be used as input for a top level acceleration structure build
         const TLAS_INPUT = 1 << 11;
+        /// Allows a buffer to be used as a shader binding table for ray tracing pipelines.
+        /// Implies device address capability.
+        const SHADER_BINDING_TABLE = 1 << 12;
     }
 }
 
@@ -138,6 +141,8 @@ bitflags::bitflags! {
         const TOP_LEVEL_ACCELERATION_STRUCTURE_INPUT = 1 << 13;
         /// A buffer used to store the compacted size of an acceleration structure
         const ACCELERATION_STRUCTURE_QUERY = 1 << 14;
+        /// Buffer used as a shader binding table for ray tracing pipelines.
+        const SHADER_BINDING_TABLE = 1 << 15;
         /// The combination of states that a buffer may be in _at the same time_.
         const INCLUSIVE = Self::MAP_READ.bits() | Self::COPY_SRC.bits() |
             Self::INDEX.bits() | Self::VERTEX.bits() | Self::UNIFORM.bits() |

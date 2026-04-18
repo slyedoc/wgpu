@@ -271,6 +271,20 @@ impl crate::CommandEncoder for CommandBuffer {
     unsafe fn dispatch_workgroups_indirect(&mut self, buffer: &Buffer, offset: wgt::BufferAddress) {
     }
 
+    unsafe fn set_ray_tracing_pipeline(&mut self, _pipeline: &Resource) {}
+
+    unsafe fn trace_rays(
+        &mut self,
+        _raygen_sbt: &wgt::ShaderBindingTableRegion,
+        _miss_sbt: &wgt::ShaderBindingTableRegion,
+        _hit_sbt: &wgt::ShaderBindingTableRegion,
+        _callable_sbt: &wgt::ShaderBindingTableRegion,
+        _width: u32,
+        _height: u32,
+        _depth: u32,
+    ) {
+    }
+
     unsafe fn build_acceleration_structures<'a, T>(
         &mut self,
         _descriptor_count: u32,

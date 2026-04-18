@@ -10,8 +10,8 @@ use crate::{
 
 use super::{
     DynAccelerationStructure, DynBindGroup, DynBuffer, DynCommandBuffer, DynComputePipeline,
-    DynPipelineLayout, DynQuerySet, DynRenderPipeline, DynResource, DynResourceExt as _,
-    DynTexture, DynTextureView,
+    DynPipelineLayout, DynQuerySet, DynRayTracingPipeline, DynRenderPipeline, DynResource,
+    DynResourceExt as _, DynTexture, DynTextureView,
 };
 
 pub trait DynCommandEncoder: DynResource + core::fmt::Debug {
@@ -188,6 +188,18 @@ pub trait DynCommandEncoder: DynResource + core::fmt::Debug {
         &mut self,
         buffer: &dyn DynBuffer,
         offset: wgt::BufferAddress,
+    );
+
+    unsafe fn set_ray_tracing_pipeline(&mut self, pipeline: &dyn DynRayTracingPipeline);
+    unsafe fn trace_rays(
+        &mut self,
+        raygen_sbt: &wgt::ShaderBindingTableRegion,
+        miss_sbt: &wgt::ShaderBindingTableRegion,
+        hit_sbt: &wgt::ShaderBindingTableRegion,
+        callable_sbt: &wgt::ShaderBindingTableRegion,
+        width: u32,
+        height: u32,
+        depth: u32,
     );
 
     unsafe fn build_acceleration_structures<'a>(
@@ -621,6 +633,35 @@ impl<C: CommandEncoder + DynResource> DynCommandEncoder for C {
     ) {
         let buffer = buffer.expect_downcast_ref();
         unsafe { C::dispatch_workgroups_indirect(self, buffer, offset) };
+    }
+
+    unsafe fn set_ray_tracing_pipeline(&mut self, pipeline: &dyn DynRayTracingPipeline) {
+        let pipeline = pipeline.expect_downcast_ref();
+        unsafe { C::set_ray_tracing_pipeline(self, pipeline) };
+    }
+
+    unsafe fn trace_rays(
+        &mut self,
+        raygen_sbt: &wgt::ShaderBindingTableRegion,
+        miss_sbt: &wgt::ShaderBindingTableRegion,
+        hit_sbt: &wgt::ShaderBindingTableRegion,
+        callable_sbt: &wgt::ShaderBindingTableRegion,
+        width: u32,
+        height: u32,
+        depth: u32,
+    ) {
+        unsafe {
+            C::trace_rays(
+                self,
+                raygen_sbt,
+                miss_sbt,
+                hit_sbt,
+                callable_sbt,
+                width,
+                height,
+                depth,
+            )
+        };
     }
 
     unsafe fn set_render_pipeline(&mut self, pipeline: &dyn DynRenderPipeline) {

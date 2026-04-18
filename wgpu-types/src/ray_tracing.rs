@@ -195,3 +195,54 @@ pub const TRANSFORM_BUFFER_ALIGNMENT: crate::BufferAddress = 16;
 
 /// Alignment requirement for instance buffers used in acceleration structure builds (`build_acceleration_structures_unsafe_tlas`)
 pub const INSTANCE_BUFFER_ALIGNMENT: crate::BufferAddress = 16;
+
+/// Type of a ray tracing shader group.
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum RayTracingShaderGroupType {
+    /// A general shader group containing a single ray generation or miss shader.
+    General,
+    /// A hit group for triangle geometry, containing a closest-hit shader and
+    /// an optional any-hit shader.
+    TrianglesHitGroup,
+    /// A hit group for procedural (AABB) geometry, containing a closest-hit shader,
+    /// an any-hit shader, and an intersection shader.
+    ProceduralHitGroup,
+}
+
+/// Describes a single shader group in a ray tracing pipeline.
+///
+/// Shader groups define how shaders are organized into the shader binding table (SBT).
+/// Each group maps to one SBT record.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct RayTracingShaderGroupDescriptor {
+    /// The type of this shader group.
+    pub group_type: RayTracingShaderGroupType,
+    /// Index into the stages array for a general (raygen/miss) shader.
+    /// Required for `General` groups, must be `None` for hit groups.
+    pub general_stage_index: Option<u32>,
+    /// Index into the stages array for the closest-hit shader.
+    /// Required for hit groups, must be `None` for `General` groups.
+    pub closest_hit_stage_index: Option<u32>,
+    /// Index into the stages array for the any-hit shader.
+    /// Optional for `TrianglesHitGroup`, required for `ProceduralHitGroup`.
+    pub any_hit_stage_index: Option<u32>,
+    /// Index into the stages array for the intersection shader.
+    /// Required for `ProceduralHitGroup`, must be `None` for others.
+    pub intersection_stage_index: Option<u32>,
+}
+
+/// Region of a shader binding table buffer.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ShaderBindingTableRegion {
+    /// Device address of the SBT buffer.
+    pub device_address: u64,
+    /// Stride between records in the region.
+    pub stride: u64,
+    /// Total size of the region in bytes.
+    pub size: u64,
+}

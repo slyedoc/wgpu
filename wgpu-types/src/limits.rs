@@ -314,6 +314,11 @@ pub struct Limits {
     /// is enabled.
     pub max_acceleration_structures_per_shader_stage: u32,
 
+    /// The maximum ray recursion depth for ray tracing pipelines. Requesting more than 0 during
+    /// device creation only makes sense if [`Features::EXPERIMENTAL_RAY_TRACING_PIPELINE`]
+    /// is enabled. Vulkan guarantees at least 1.
+    pub max_ray_tracing_pipeline_recursion_depth: u32,
+
     /// The maximum number of views that can be used in multiview rendering
     pub max_multiview_view_count: u32,
 }
@@ -385,6 +390,7 @@ impl Limits {
     ///     max_blas_geometry_count: 0,
     ///     max_tlas_instance_count: 0,
     ///     max_acceleration_structures_per_shader_stage: 0,
+    ///     max_ray_tracing_pipeline_recursion_depth: 0,
     ///     max_multiview_view_count: 0,
     /// });
     /// ```
@@ -449,6 +455,7 @@ impl Limits {
             max_blas_geometry_count: 0,
             max_tlas_instance_count: 0,
             max_acceleration_structures_per_shader_stage: 0,
+            max_ray_tracing_pipeline_recursion_depth: 0,
 
             max_multiview_view_count: 0,
         }
@@ -695,6 +702,7 @@ impl Limits {
             max_blas_geometry_count: ALLOC_MAX_U32,
             max_tlas_instance_count: ALLOC_MAX_U32,
             max_acceleration_structures_per_shader_stage: ALLOC_MAX_U32,
+            max_ray_tracing_pipeline_recursion_depth: ALLOC_MAX_U32,
 
             max_multiview_view_count: ALLOC_MAX_U32,
         }
@@ -736,6 +744,7 @@ impl Limits {
             max_blas_primitive_count: 1 << 28,      // 2^28: Metal's minimum
             // On metal acceleration structures are limited because they share buffer slots
             max_acceleration_structures_per_shader_stage: 1,
+            max_ray_tracing_pipeline_recursion_depth: 1, // Vulkan's minimum
             ..self
         }
     }
@@ -750,6 +759,8 @@ impl Limits {
             max_blas_primitive_count: other.max_blas_primitive_count,
             max_acceleration_structures_per_shader_stage: other
                 .max_acceleration_structures_per_shader_stage,
+            max_ray_tracing_pipeline_recursion_depth: other
+                .max_ray_tracing_pipeline_recursion_depth,
             ..self
         }
     }
