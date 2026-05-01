@@ -104,6 +104,12 @@ vulkan = [
     "gpu-allocator/vulkan",
     "windows/Win32",
 ]
+## Enables `VK_NV_cluster_acceleration_structure` in the Vulkan backend, exposed
+## via the `EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE` Features bit. Bindings
+## come from the patched ash dep (see workspace `[patch.crates-io]`); ash 0.38
+## release does not yet expose this extension. Vulkan-only; intended for
+## prototyping NVIDIA mega-geometry style pipelines.
+experimental-cluster-acceleration-structure = ["vulkan"]
 gles = [
     "dep:arrayvec",
     "dep:bytemuck",

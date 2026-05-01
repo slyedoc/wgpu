@@ -25,6 +25,8 @@ Otherwise, we manage a pool of `VkFence` objects behind each `hal::Fence`.
 !*/
 
 mod adapter;
+#[cfg(feature = "experimental-cluster-acceleration-structure")]
+pub mod cluster_acceleration_structure;
 mod command;
 pub mod conv;
 mod descriptor;
@@ -295,6 +297,11 @@ struct DeviceExtensionFunctions {
     mesh_shading: Option<ext::mesh_shader::Device>,
     #[cfg_attr(not(unix), allow(dead_code))]
     external_memory_fd: Option<khr::external_memory_fd::Device>,
+    /// Loaded entry points for `VK_NV_cluster_acceleration_structure`. Populated only
+    /// when the wgpu-hal `experimental-cluster-acceleration-structure` feature is on
+    /// AND the user enabled `Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`.
+    #[cfg(feature = "experimental-cluster-acceleration-structure")]
+    cluster_acceleration_structure: Option<cluster_acceleration_structure::Functions>,
 }
 
 struct RayTracingDeviceExtensionFunctions {

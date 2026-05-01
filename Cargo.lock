@@ -223,9 +223,8 @@ checksum = "175571dd1d178ced59193a6fc02dde1b972eb0bc56c892cde9beeceac5bf0f6b"
 
 [[package]]
 name = "ash"
-version = "0.38.0+1.3.281"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bb44936d800fea8f016d7f2311c6a4f97aebd5dc86f09906139ec848cf3a46f"
+version = "0.38.0+1.3.296"
+source = "git+https://github.com/slyedoc/ash.git?branch=cluster-acceleration-structure#157348621b0fbae6af791bdc6c7dcad5aa8a6076"
 dependencies = [
  "libloading",
 ]
@@ -817,7 +816,7 @@ checksum = "7a949c44fcacbbbb7ada007dc7acb34603dd97cd47de5d054f2b6493ecebb483"
 
 [[package]]
 name = "cts_runner"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "deno_console",
  "deno_core",
@@ -1316,7 +1315,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55753e2354c477cf7cb0089316c526e72be8610c330358c93d6f12f8d1fad756"
 dependencies = [
  "exhaust-macros",
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "mutants",
 ]
 
@@ -1326,7 +1325,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de248793548b04e7d29117107315b9cb6410c0b37dbb85038452eccfb489cda3"
 dependencies = [
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "syn",
@@ -1725,8 +1724,7 @@ dependencies = [
 [[package]]
 name = "gpu-allocator"
 version = "0.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51255ea7cfaadb6c5f1528d43e92a82acb2b96c43365989a28b2d44ee38f8795"
+source = "git+https://github.com/slyedoc/gpu-allocator.git?branch=ash-push-rename#b3c8f269487f9415dbf595ae8213cc660f6c3f33"
 dependencies = [
  "ash",
  "hashbrown 0.16.1",
@@ -1805,7 +1803,7 @@ checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 
 [[package]]
 name = "hlsl-snapshots"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "anyhow",
  "nanoserde",
@@ -2249,7 +2247,7 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "lock-analyzer"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "anyhow",
  "ron",
@@ -2385,7 +2383,7 @@ checksum = "add0ac067452ff1aca8c5002111bd6b1c895baee6e45fcbc44e0193aea17be56"
 
 [[package]]
 name = "naga"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "arbitrary",
  "arrayvec",
@@ -2421,7 +2419,7 @@ dependencies = [
 
 [[package]]
 name = "naga-cli"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "anyhow",
  "argh",
@@ -2434,7 +2432,7 @@ dependencies = [
 
 [[package]]
 name = "naga-fuzz"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "arbitrary",
  "cfg_aliases",
@@ -2444,7 +2442,7 @@ dependencies = [
 
 [[package]]
 name = "naga-test"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "bitflags 2.11.1",
  "naga",
@@ -3095,7 +3093,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "player"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "bytemuck",
  "env_logger",
@@ -4671,7 +4669,7 @@ dependencies = [
 
 [[package]]
 name = "wgpu"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "arrayvec",
  "bitflags 2.11.1",
@@ -4699,7 +4697,7 @@ dependencies = [
 
 [[package]]
 name = "wgpu-benchmark"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -4740,7 +4738,7 @@ dependencies = [
 
 [[package]]
 name = "wgpu-core"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "arrayvec",
  "bit-set 0.10.0",
@@ -4775,28 +4773,28 @@ dependencies = [
 
 [[package]]
 name = "wgpu-core-deps-apple"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "wgpu-hal",
 ]
 
 [[package]]
 name = "wgpu-core-deps-emscripten"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "wgpu-hal",
 ]
 
 [[package]]
 name = "wgpu-core-deps-wasm"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "wgpu-hal",
 ]
 
 [[package]]
 name = "wgpu-core-deps-windows-linux-android"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "wgpu-hal",
 ]
@@ -4831,7 +4829,7 @@ dependencies = [
 
 [[package]]
 name = "wgpu-examples"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "bytemuck",
  "cfg-if",
@@ -4862,7 +4860,7 @@ dependencies = [
 
 [[package]]
 name = "wgpu-hal"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "android_system_properties",
  "arrayvec",
@@ -4920,7 +4918,7 @@ dependencies = [
 
 [[package]]
 name = "wgpu-info"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "anyhow",
  "bitflags 2.11.1",
@@ -4936,7 +4934,7 @@ dependencies = [
 
 [[package]]
 name = "wgpu-macros"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "heck",
  "quote",
@@ -4945,7 +4943,7 @@ dependencies = [
 
 [[package]]
 name = "wgpu-naga-bridge"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "naga",
  "wgpu-types",
@@ -4953,7 +4951,7 @@ dependencies = [
 
 [[package]]
 name = "wgpu-test"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "anyhow",
  "approx",
@@ -4998,7 +4996,7 @@ dependencies = [
 
 [[package]]
 name = "wgpu-types"
-version = "29.0.0"
+version = "29.0.1"
 dependencies = [
  "bitflags 2.11.1",
  "bytemuck",

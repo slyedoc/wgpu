@@ -4,6 +4,7 @@ use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::any::Any;
 
 use ash::{khr, vk};
+use ash::vk::TaggedStructure as _;
 use parking_lot::{Mutex, MutexGuard};
 
 use crate::vulkan::{
@@ -21,7 +22,7 @@ pub(crate) struct NativeSurface {
 
 impl NativeSurface {
     pub fn from_vk_surface_khr(instance: &crate::vulkan::Instance, raw: vk::SurfaceKHR) -> Self {
-        let functor = khr::surface::Instance::new(&instance.shared.entry, &instance.shared.raw);
+        let functor = khr::surface::Instance::load(&instance.shared.entry, &instance.shared.raw);
         Self {
             raw,
             functor,
@@ -160,7 +161,7 @@ impl Surface for NativeSurface {
         provided_old_swapchain: Option<Box<dyn Swapchain>>,
     ) -> Result<Box<dyn Swapchain>, crate::SurfaceError> {
         profiling::scope!("Device::create_swapchain");
-        let functor = khr::swapchain::Device::new(&self.instance.raw, &device.shared.raw);
+        let functor = khr::swapchain::Device::load(&self.instance.raw, &device.shared.raw);
 
         let old_swapchain = provided_old_swapchain
             .as_ref()
@@ -210,7 +211,7 @@ impl Surface for NativeSurface {
         let mut format_list_info = vk::ImageFormatListCreateInfo::default();
         if !raw_view_formats.is_empty() {
             format_list_info = format_list_info.view_formats(&raw_view_formats);
-            info = info.push_next(&mut format_list_info);
+            info = info.push(&mut format_list_info);
         }
 
         let result = {
@@ -575,7 +576,7 @@ impl Swapchain for NativeSwapchain {
             present_times = [present_time];
             display_timing = vk::PresentTimesInfoGOOGLE::default().times(&present_times);
             // SAFETY: We know that VK_GOOGLE_display_timing is present because of the safety contract on `next_present_time`.
-            vk_info.push_next(&mut display_timing)
+            vk_info.push(&mut display_timing)
         } else {
             vk_info
         };

@@ -1308,6 +1308,29 @@ bitflags_array! {
         #[name("wgpu-ray-hit-vertex-return")]
         const EXPERIMENTAL_RAY_HIT_VERTEX_RETURN = 1 << 49;
 
+        /// ***THIS IS EXPERIMENTAL:*** Features enabled by this may have
+        /// major bugs and are expected to be subject to breaking changes; design discussion
+        /// belongs on the [ray tracing tracking issue](https://github.com/gfx-rs/wgpu/issues/6762).
+        ///
+        /// Enables building bottom-of-the-stack [Cluster Acceleration Structures](https://registry.khronos.org/vulkan/specs/latest/man/html/VK_NV_cluster_acceleration_structure.html)
+        /// (CLAS) and constructing BLASes that reference them by device address. This is the
+        /// foundation NVIDIA uses for ray-tracing virtualized clustered geometry (Nanite-style),
+        /// shipping under the "RTX MegaGeometry" umbrella.
+        ///
+        /// All cluster-AS builds are GPU-driven (indirect): the build descriptors live in a
+        /// device-local buffer that the application fills earlier in the same frame.
+        ///
+        /// Vendor-specific NV extension; no cross-vendor or KHR variant exists yet. Only
+        /// available when wgpu-hal is compiled with the
+        /// `experimental-cluster-acceleration-structure` Cargo feature.
+        ///
+        /// Supported platforms:
+        /// - Vulkan (NVIDIA, Turing+)
+        ///
+        /// This is a native only feature.
+        #[name("wgpu-cluster-acceleration-structure")]
+        const EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE = 1 << 24;
+
         /// Enables multiview in mesh shader pipelines
         ///
         /// Supported platforms:
@@ -1841,7 +1864,8 @@ impl Features {
     #[must_use]
     pub const fn all_experimental_mask() -> Self {
         Self::from_bits_truncate(FeatureBits([
-            FeaturesWGPU::EXPERIMENTAL_MESH_SHADER.bits()
+            FeaturesWGPU::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE.bits()
+                | FeaturesWGPU::EXPERIMENTAL_MESH_SHADER.bits()
                 | FeaturesWGPU::EXPERIMENTAL_MESH_SHADER_MULTIVIEW.bits()
                 | FeaturesWGPU::EXPERIMENTAL_MESH_SHADER_POINTS.bits()
                 | FeaturesWGPU::EXPERIMENTAL_RAY_QUERY.bits()
