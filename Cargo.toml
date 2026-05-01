@@ -66,7 +66,7 @@ keywords = ["graphics"]
 license = "MIT OR Apache-2.0"
 homepage = "https://wgpu.rs/"
 repository = "https://github.com/gfx-rs/wgpu"
-version = "29.0.3"
+version = "29.0.1"
 authors = ["gfx-rs developers"]
 
 [workspace.dependencies]
@@ -97,10 +97,10 @@ wgpu-types = { version = "29.0.1", path = "./wgpu-types", default-features = fal
 # are allowed through though.
 hlsl-snapshots = { path = "naga/hlsl-snapshots" }
 
-wgpu-core-deps-windows-linux-android = { version = "29.0.0", path = "./wgpu-core/platform-deps/windows-linux-android" }
-wgpu-core-deps-apple = { version = "29.0.0", path = "./wgpu-core/platform-deps/apple" }
-wgpu-core-deps-wasm = { version = "29.0.0", path = "./wgpu-core/platform-deps/wasm" }
-wgpu-core-deps-emscripten = { version = "29.0.0", path = "./wgpu-core/platform-deps/emscripten" }
+wgpu-core-deps-windows-linux-android = { version = "29.0.1", path = "./wgpu-core/platform-deps/windows-linux-android" }
+wgpu-core-deps-apple = { version = "29.0.1", path = "./wgpu-core/platform-deps/apple" }
+wgpu-core-deps-wasm = { version = "29.0.1", path = "./wgpu-core/platform-deps/wasm" }
+wgpu-core-deps-emscripten = { version = "29.0.1", path = "./wgpu-core/platform-deps/emscripten" }
 
 anyhow = { version = "1.0.87", default-features = false }
 approx = "0.5"
@@ -319,6 +319,12 @@ ndk-sys = "0.6"
 # These overrides allow our examples to explicitly depend on release crates
 [patch.crates-io]
 wgpu = { path = "./wgpu" }
+# ash master HEAD with VK_NV_cluster_acceleration_structure bindings (= ash PR #1028).
+# Required for the `experimental-cluster-acceleration-structure` wgpu-hal feature.
+# Carries the upstream `push_next` → `push` rename, hence the call-site migration in
+# wgpu-hal and the gpu-allocator patch below.
+ash = { git = "https://github.com/slyedoc/ash.git", branch = "cluster-acceleration-structure" }
+gpu-allocator = { git = "https://github.com/slyedoc/gpu-allocator.git", branch = "ash-push-rename" }
 
 env_logger = { version = "0.11", git = "https://github.com/rust-cli/env_logger.git", rev = "d550741" }
 libtest-mimic = { version = "0.8", git = "https://github.com/cwfitzgerald/libtest-mimic.git", rev = "9979b3c" }

@@ -57,6 +57,14 @@ metal = ["wgpu-core?/metal"]
 ## Enables the Vulkan backend on Windows, Linux, and Android.
 vulkan = ["wgpu-core?/vulkan"]
 
+## Enables `VK_NV_cluster_acceleration_structure` in the Vulkan backend, forwarded
+## from `wgpu-hal`. Exposes the `Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`
+## bit. Vulkan-only; intended for prototyping NVIDIA mega-geometry style pipelines.
+experimental-cluster-acceleration-structure = [
+    "vulkan",
+    "wgpu-core?/experimental-cluster-acceleration-structure",
+]
+
 ## Enables the OpenGL/GLES backend on Windows, Linux, Android, and Emscripten.
 gles = ["wgpu-core?/gles"]
 

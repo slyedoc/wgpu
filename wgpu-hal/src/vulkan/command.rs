@@ -114,6 +114,44 @@ impl super::CommandEncoder {
             }
         })
     }
+
+    /// Records `vkCmdBuildClusterAccelerationStructureIndirectNV` into the active
+    /// command buffer.
+    ///
+    /// The Vulkan API for cluster acceleration structures is fully GPU-driven: the
+    /// build descriptors live in a device-local buffer that the application populates
+    /// earlier in the same frame (e.g. via a compute dispatch that decodes Nanite-like
+    /// streamed clusters). `info` references those buffers by `VkDeviceAddress`.
+    ///
+    /// Reachable from outside wgpu-hal via [`wgpu::CommandEncoder::as_hal::<Api>`][api],
+    /// gated on the `experimental-cluster-acceleration-structure` Cargo feature and
+    /// [`Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`][feat].
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold all rules of `vkCmdBuildClusterAccelerationStructureIndirectNV`,
+    /// including: the destination buffer is large enough for the implicit/explicit
+    /// output sizes returned by [`super::Device::get_cluster_build_sizes`]; the indirect
+    /// descriptor buffer is fully populated and synchronized; and the device was created
+    /// with the `clusterAccelerationStructure` feature enabled.
+    ///
+    /// [api]: https://docs.rs/wgpu/latest/wgpu/struct.CommandEncoder.html#method.as_hal
+    /// [feat]: wgt::Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE
+    #[cfg(feature = "experimental-cluster-acceleration-structure")]
+    pub unsafe fn cmd_build_cluster_acceleration_structures_indirect(
+        &self,
+        info: &vk::ClusterAccelerationStructureCommandsInfoNV<'_>,
+    ) {
+        let cluster_fns = self
+            .device
+            .extension_fns
+            .cluster_acceleration_structure
+            .as_ref()
+            .expect("Feature `EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE` not enabled");
+        unsafe {
+            cluster_fns.cmd_build_indirect(self.active, info);
+        }
+    }
 }
 
 impl crate::CommandEncoder for super::CommandEncoder {
