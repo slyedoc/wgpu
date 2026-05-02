@@ -22,6 +22,9 @@ vulkan = ["wgpu-hal/vulkan"]
 experimental-cluster-acceleration-structure = [
     "wgpu-hal/experimental-cluster-acceleration-structure",
 ]
+experimental-partitioned-acceleration-structure = [
+    "wgpu-hal/experimental-partitioned-acceleration-structure",
+]
 dx12 = ["wgpu-hal/dx12"]
 renderdoc = ["wgpu-hal/renderdoc"]
 

@@ -845,6 +845,41 @@ impl super::Device {
         unsafe { cluster_fns.get_build_sizes(info) }
     }
 
+    /// Calls `vkGetPartitionedAccelerationStructuresBuildSizesNV`.
+    ///
+    /// Returns the device-local memory required to build a partitioned
+    /// acceleration structure given an
+    /// `VkPartitionedAccelerationStructureInstancesInputNV` description.
+    ///
+    /// Reachable from outside wgpu-hal via [`wgpu::Device::as_hal::<Api>`][api],
+    /// gated on the `experimental-partitioned-acceleration-structure` Cargo
+    /// feature and
+    /// [`Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE`][feat].
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold all rules of
+    /// `vkGetPartitionedAccelerationStructuresBuildSizesNV`, including
+    /// ensuring the device was created with the
+    /// `partitionedAccelerationStructure` feature enabled and the `pInfo`
+    /// chain is well-formed.
+    ///
+    /// [api]: https://docs.rs/wgpu/latest/wgpu/struct.Device.html#method.as_hal
+    /// [feat]: wgt::Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE
+    #[cfg(feature = "experimental-partitioned-acceleration-structure")]
+    pub unsafe fn get_partitioned_build_sizes(
+        &self,
+        info: &vk::PartitionedAccelerationStructureInstancesInputNV<'_>,
+    ) -> vk::AccelerationStructureBuildSizesInfoKHR<'static> {
+        let fns = self
+            .shared
+            .extension_fns
+            .partitioned_acceleration_structure
+            .as_ref()
+            .expect("Feature `EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE` not enabled");
+        unsafe { fns.get_build_sizes(info) }
+    }
+
     fn error_if_would_oom_on_resource_allocation(
         &self,
         needs_host_access: bool,

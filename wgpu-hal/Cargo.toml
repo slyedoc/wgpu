@@ -110,6 +110,13 @@ vulkan = [
 ## release does not yet expose this extension. Vulkan-only; intended for
 ## prototyping NVIDIA mega-geometry style pipelines.
 experimental-cluster-acceleration-structure = ["vulkan"]
+## Enables `VK_NV_partitioned_acceleration_structure` in the Vulkan backend,
+## exposed via the `EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE` Features
+## bit. Pairs with `experimental-cluster-acceleration-structure`: the standard
+## KHR TLAS path cannot traverse cluster-built BLASes, so a partitioned TLAS
+## is the load-bearing companion for ray queries against cluster geometry.
+## Bindings come from the patched ash dep. Vulkan-only.
+experimental-partitioned-acceleration-structure = ["vulkan"]
 gles = [
     "dep:arrayvec",
     "dep:bytemuck",

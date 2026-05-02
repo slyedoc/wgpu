@@ -150,6 +150,12 @@ pub struct PhysicalDeviceFeatures {
     /// feature; left `None` otherwise so the field is always defined.
     cluster_acceleration_structure:
         Option<vk::PhysicalDeviceClusterAccelerationStructureFeaturesNV<'static>>,
+
+    /// Features provided by `VK_NV_partitioned_acceleration_structure`. Only queried when
+    /// wgpu-hal is built with the `experimental-partitioned-acceleration-structure`
+    /// Cargo feature; left `None` otherwise so the field is always defined.
+    partitioned_acceleration_structure:
+        Option<vk::PhysicalDevicePartitionedAccelerationStructureFeaturesNV<'static>>,
 }
 
 impl PhysicalDeviceFeatures {
@@ -239,6 +245,9 @@ impl PhysicalDeviceFeatures {
             info = info.push(feature);
         }
         if let Some(ref mut feature) = self.cluster_acceleration_structure {
+            info = info.push(feature);
+        }
+        if let Some(ref mut feature) = self.partitioned_acceleration_structure {
             info = info.push(feature);
         }
         info
@@ -656,6 +665,26 @@ impl PhysicalDeviceFeatures {
                     None
                 }
             },
+            partitioned_acceleration_structure: {
+                #[cfg(feature = "experimental-partitioned-acceleration-structure")]
+                {
+                    if enabled_extensions
+                        .contains(&super::partitioned_acceleration_structure::NAME)
+                    {
+                        Some(
+                            vk::PhysicalDevicePartitionedAccelerationStructureFeaturesNV::default()
+                                .partitioned_acceleration_structure(true),
+                        )
+                    } else {
+                        None
+                    }
+                }
+                #[cfg(not(feature = "experimental-partitioned-acceleration-structure"))]
+                {
+                    let _ = enabled_extensions;
+                    None
+                }
+            },
         }
     }
 
@@ -1001,6 +1030,23 @@ impl PhysicalDeviceFeatures {
             features.set(
                 F::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE,
                 supports_cluster_acceleration_structure,
+            );
+        }
+
+        // `VK_NV_partitioned_acceleration_structure` -- same KHR-AS dependency
+        // check as cluster_AS / ray query. The vendor-specific feature bit must
+        // additionally be supported.
+        #[cfg(feature = "experimental-partitioned-acceleration-structure")]
+        {
+            let supports_partitioned_acceleration_structure = supports_acceleration_structures
+                && caps.supports_extension(super::partitioned_acceleration_structure::NAME)
+                && self
+                    .partitioned_acceleration_structure
+                    .as_ref()
+                    .is_some_and(|f| f.partitioned_acceleration_structure != 0);
+            features.set(
+                F::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE,
+                supports_partitioned_acceleration_structure,
             );
         }
 
@@ -1448,6 +1494,17 @@ impl PhysicalDeviceProperties {
             .contains(wgt::Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE)
         {
             extensions.push(super::cluster_acceleration_structure::NAME);
+        }
+
+        // `VK_NV_partitioned_acceleration_structure` -- same KHR-AS dependency
+        // pattern as cluster_AS. Pairs with cluster_AS for the Nanite-style
+        // pipeline; pure standard-BLAS users can still enable it on its own
+        // for the partitioned-instance optimization.
+        #[cfg(feature = "experimental-partitioned-acceleration-structure")]
+        if requested_features
+            .contains(wgt::Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE)
+        {
+            extensions.push(super::partitioned_acceleration_structure::NAME);
         }
 
         extensions
@@ -2159,6 +2216,14 @@ impl super::InstanceShared {
                 features2 = features2.push(next);
             }
 
+            #[cfg(feature = "experimental-partitioned-acceleration-structure")]
+            if capabilities.supports_extension(super::partitioned_acceleration_structure::NAME) {
+                let next = features.partitioned_acceleration_structure.insert(
+                    vk::PhysicalDevicePartitionedAccelerationStructureFeaturesNV::default(),
+                );
+                features2 = features2.push(next);
+            }
+
             if capabilities.device_api_version >= vk::API_VERSION_1_1 {
                 let next = features
                     .shader_draw_parameters
@@ -2619,6 +2684,18 @@ impl super::Adapter {
             None
         };
 
+        #[cfg(feature = "experimental-partitioned-acceleration-structure")]
+        let partitioned_acceleration_structure_fns = if enabled_extensions
+            .contains(&super::partitioned_acceleration_structure::NAME)
+        {
+            Some(super::partitioned_acceleration_structure::Functions::load(
+                &self.instance.raw,
+                &raw_device,
+            ))
+        } else {
+            None
+        };
+
         let naga_options = {
             use naga::back::spv;
 
@@ -2869,6 +2946,8 @@ impl super::Adapter {
                 external_memory_fd: external_memory_fd_fn,
                 #[cfg(feature = "experimental-cluster-acceleration-structure")]
                 cluster_acceleration_structure: cluster_acceleration_structure_fns,
+                #[cfg(feature = "experimental-partitioned-acceleration-structure")]
+                partitioned_acceleration_structure: partitioned_acceleration_structure_fns,
             },
             pipeline_cache_validation_key,
             vendor_id: self.phd_capabilities.properties.vendor_id,

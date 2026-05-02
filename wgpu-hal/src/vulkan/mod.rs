@@ -28,6 +28,8 @@ mod adapter;
 #[cfg(feature = "experimental-cluster-acceleration-structure")]
 pub mod cluster_acceleration_structure;
 mod command;
+#[cfg(feature = "experimental-partitioned-acceleration-structure")]
+pub mod partitioned_acceleration_structure;
 pub mod conv;
 mod descriptor;
 mod device;
@@ -302,6 +304,14 @@ struct DeviceExtensionFunctions {
     /// AND the user enabled `Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`.
     #[cfg(feature = "experimental-cluster-acceleration-structure")]
     cluster_acceleration_structure: Option<cluster_acceleration_structure::Functions>,
+    /// Loaded entry points for `VK_NV_partitioned_acceleration_structure`. Populated
+    /// only when the wgpu-hal `experimental-partitioned-acceleration-structure` feature
+    /// is on AND the user enabled
+    /// `Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE`. Pairs with
+    /// `cluster_acceleration_structure` -- a partitioned TLAS is the load-bearing
+    /// companion that can traverse cluster-built BLASes.
+    #[cfg(feature = "experimental-partitioned-acceleration-structure")]
+    partitioned_acceleration_structure: Option<partitioned_acceleration_structure::Functions>,
 }
 
 struct RayTracingDeviceExtensionFunctions {
@@ -712,6 +722,27 @@ pub struct AccelerationStructure {
     buffer: vk::Buffer,
     allocation: gpu_allocator::vulkan::Allocation,
     compacted_size_query: Option<vk::QueryPool>,
+}
+
+impl AccelerationStructure {
+    /// Raw `VkAccelerationStructureKHR` handle.
+    ///
+    /// Useful when an external code path needs to drive the AS at the
+    /// Vulkan level -- for example, passing its device address as the
+    /// `dstAccelerationStructureData` of a
+    /// `VK_NV_partitioned_acceleration_structure` build, or wrapping the
+    /// AS as a TLAS instance reference.
+    ///
+    /// # Safety
+    ///
+    /// - The handle must not be manually destroyed.
+    /// - The caller must not concurrently rebuild the AS in a way that
+    ///   leaves the wgpu-side state stale (in particular, if this AS is
+    ///   later passed to `Device::create_tlas_from_hal`, the partitioned
+    ///   / external build must complete before any ray query reads it).
+    pub unsafe fn raw_handle(&self) -> vk::AccelerationStructureKHR {
+        self.raw
+    }
 }
 
 impl crate::DynAccelerationStructure for AccelerationStructure {}

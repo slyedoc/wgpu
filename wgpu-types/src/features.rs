@@ -1331,6 +1331,29 @@ bitflags_array! {
         #[name("wgpu-cluster-acceleration-structure")]
         const EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE = 1 << 24;
 
+        /// Enables `VK_NV_partitioned_acceleration_structure`: a partitioned
+        /// top-level acceleration structure (TLAS) that supports incremental
+        /// per-partition builds + can instance cluster-built BLASes produced
+        /// by [`Self::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`].
+        ///
+        /// The standard `VK_KHR_acceleration_structure` TLAS path cannot
+        /// instance cluster-built BLASes -- ray queries through such a TLAS
+        /// silently miss because the standard TLAS traversal doesn't follow
+        /// the cluster-AS internal CLAS references. Pairing the cluster-AS
+        /// build with a partitioned TLAS is the load-bearing combination
+        /// behind NVIDIA's RTX MegaGeometry pipeline.
+        ///
+        /// Vendor-specific NV extension; no cross-vendor or KHR variant
+        /// exists yet. Only available when wgpu-hal is compiled with the
+        /// `experimental-partitioned-acceleration-structure` Cargo feature.
+        ///
+        /// Supported platforms:
+        /// - Vulkan (NVIDIA, Turing+)
+        ///
+        /// This is a native only feature.
+        #[name("wgpu-partitioned-acceleration-structure")]
+        const EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE = 1 << 25;
+
         /// Enables multiview in mesh shader pipelines
         ///
         /// Supported platforms:
@@ -1865,6 +1888,7 @@ impl Features {
     pub const fn all_experimental_mask() -> Self {
         Self::from_bits_truncate(FeatureBits([
             FeaturesWGPU::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE.bits()
+                | FeaturesWGPU::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE.bits()
                 | FeaturesWGPU::EXPERIMENTAL_MESH_SHADER.bits()
                 | FeaturesWGPU::EXPERIMENTAL_MESH_SHADER_MULTIVIEW.bits()
                 | FeaturesWGPU::EXPERIMENTAL_MESH_SHADER_POINTS.bits()
