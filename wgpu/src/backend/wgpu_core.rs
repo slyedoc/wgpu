@@ -163,6 +163,33 @@ impl ContextWgpuCore {
 
     /// # Safety
     ///
+    /// - `hal_acceleration_structure` must have been created on `device`'s
+    ///   underlying hal device.
+    /// - The acceleration structure must be fully built before this call.
+    /// - `desc.flags` and `desc.max_instances` must accurately describe the
+    ///   build the caller actually performed.
+    pub unsafe fn create_tlas_from_hal<A: hal::Api>(
+        &self,
+        hal_acceleration_structure: A::AccelerationStructure,
+        device: &CoreDevice,
+        desc: &crate::CreateTlasDescriptor<'_>,
+    ) -> CoreTlas {
+        let id = unsafe {
+            self.0.device_create_tlas_from_hal::<A>(
+                hal_acceleration_structure,
+                device.id,
+                &desc.map_label(|l| l.map(Borrowed)),
+                None,
+            )
+        };
+        CoreTlas {
+            context: self.clone(),
+            id,
+        }
+    }
+
+    /// # Safety
+    ///
     /// - `hal_buffer` must be created from `device`.
     /// - `hal_buffer` must be created respecting `desc`
     /// - `hal_buffer` must be initialized

@@ -398,6 +398,55 @@ impl Device {
         }
     }
 
+    /// Creates a [`Tlas`] from a `wgpu-hal` acceleration structure built outside
+    /// of `wgpu`'s regular build path.
+    ///
+    /// Use this when the acceleration structure was constructed through raw
+    /// `wgpu-hal` calls — for example, to drive an extension `wgpu-core` does
+    /// not yet expose, or to share an acceleration structure with native code
+    /// that built it directly. The returned [`Tlas`] is treated as already
+    /// built; attempting to rebuild it through
+    /// [`crate::CommandEncoder::build_acceleration_structures`] will fail.
+    ///
+    /// # Types
+    ///
+    /// The type of `A::AccelerationStructure` depends on the backend:
+    ///
+    #[doc = crate::macros::hal_type_vulkan!("AccelerationStructure")]
+    ///
+    /// # Safety
+    ///
+    /// - `hal_acceleration_structure` must have been created on this device's
+    ///   underlying hal device.
+    /// - The acceleration structure must be fully built before being wrapped.
+    /// - `desc.flags` and `desc.max_instances` must accurately reflect the
+    ///   build the caller actually performed.
+    /// - The returned [`Tlas`] takes ownership of the hal acceleration
+    ///   structure: it will be destroyed via `wgpu-hal`'s
+    ///   `destroy_acceleration_structure` when the [`Tlas`] is dropped. The
+    ///   caller must not destroy the handle themselves.
+    #[cfg(wgpu_core)]
+    #[must_use]
+    pub unsafe fn create_tlas_from_hal<A: hal::Api>(
+        &self,
+        hal_acceleration_structure: A::AccelerationStructure,
+        desc: &CreateTlasDescriptor<'_>,
+    ) -> Tlas {
+        let tlas = unsafe {
+            let core_device = self.inner.as_core();
+            core_device.context.create_tlas_from_hal::<A>(
+                hal_acceleration_structure,
+                core_device,
+                desc,
+            )
+        };
+        Tlas {
+            inner: tlas.into(),
+            instances: vec![None; desc.max_instances as usize],
+            lowest_unmodified: 0,
+        }
+    }
+
     /// Creates a new [`Sampler`].
     ///
     /// `desc` specifies the behavior of the sampler.

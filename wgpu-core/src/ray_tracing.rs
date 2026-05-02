@@ -213,6 +213,11 @@ pub enum BuildAccelerationStructureError {
 
     #[error("Blas {0:?} AABB stride is invalid (must be >= {1} and a multiple of 8)")]
     InvalidAabbStride(ResourceErrorIdent, BufferAddress),
+
+    #[error(
+        "Tlas {0:?} was created from a foreign hal acceleration structure and cannot be rebuilt through wgpu"
+    )]
+    CannotRebuildForeignTlas(ResourceErrorIdent),
 }
 
 impl WebGpuError for BuildAccelerationStructureError {
@@ -249,7 +254,8 @@ impl WebGpuError for BuildAccelerationStructureError {
             | Self::BlasGeometryKindMismatch(..)
             | Self::IncompatibleBlasAabbPrimitiveCount(..)
             | Self::UnalignedAabbPrimitiveOffset(..)
-            | Self::InvalidAabbStride(..) => ErrorType::Validation,
+            | Self::InvalidAabbStride(..)
+            | Self::CannotRebuildForeignTlas(..) => ErrorType::Validation,
         }
     }
 }

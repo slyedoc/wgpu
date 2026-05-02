@@ -219,6 +219,12 @@ pub(crate) fn build_acceleration_structures(
 
     for package in tlas.iter() {
         let tlas = &package.tlas;
+        // Tlases wrapped via `Device::create_tlas_from_hal` carry no wgpu-managed
+        // instance buffer because they were built outside of wgpu and cannot be
+        // rebuilt through this path.
+        let instance_buffer = tlas.instance_buffer.as_ref().ok_or_else(|| {
+            BuildAccelerationStructureError::CannotRebuildForeignTlas(tlas.error_ident())
+        })?;
         state.tracker.tlas_s.insert_single(tlas.clone());
 
         let scratch_buffer_offset = scratch_buffer_tlas_size;
@@ -288,7 +294,7 @@ pub(crate) fn build_acceleration_structures(
                 tlas: tlas.clone(),
                 entries: hal::AccelerationStructureEntries::Instances(
                     hal::AccelerationStructureInstances {
-                        buffer: Some(tlas.instance_buffer.as_ref()),
+                        buffer: Some(instance_buffer.as_ref()),
                         offset: 0,
                         count: instance_count,
                     },
@@ -408,8 +414,14 @@ pub(crate) fn build_acceleration_structures(
                 None => continue,
                 Some(size) => size,
             };
+            // Foreign-wrapped tlases are filtered out earlier in this function,
+            // so any tlas reaching this loop has an `instance_buffer`.
+            let instance_buffer = tlas
+                .instance_buffer
+                .as_ref()
+                .expect("foreign tlas should have been rejected earlier");
             instance_buffer_barriers.push(hal::BufferBarrier::<dyn hal::DynBuffer> {
-                buffer: tlas.instance_buffer.as_ref(),
+                buffer: instance_buffer.as_ref(),
                 usage: hal::StateTransition {
                     from: BufferUses::COPY_DST,
                     to: BufferUses::TOP_LEVEL_ACCELERATION_STRUCTURE_INPUT,
@@ -417,7 +429,7 @@ pub(crate) fn build_acceleration_structures(
             });
             unsafe {
                 raw_encoder.transition_buffers(&[hal::BufferBarrier::<dyn hal::DynBuffer> {
-                    buffer: tlas.instance_buffer.as_ref(),
+                    buffer: instance_buffer.as_ref(),
                     usage: hal::StateTransition {
                         from: BufferUses::TOP_LEVEL_ACCELERATION_STRUCTURE_INPUT,
                         to: BufferUses::COPY_DST,
@@ -430,7 +442,7 @@ pub(crate) fn build_acceleration_structures(
                 };
                 raw_encoder.copy_buffer_to_buffer(
                     staging_buffer.as_ref().unwrap().raw(),
-                    tlas.instance_buffer.as_ref(),
+                    instance_buffer.as_ref(),
                     &[temp],
                 );
             }
