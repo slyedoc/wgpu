@@ -142,6 +142,14 @@ experimental-cluster-acceleration-structure = [
     "vulkan",
     "wgpu-core-deps-windows-linux-android/experimental-cluster-acceleration-structure",
 ]
+## Forwards `wgpu-hal`'s `experimental-partitioned-acceleration-structure`
+## feature via the platform-deps shim. Surfaces
+## `Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE` when the runtime
+## adapter supports `VK_NV_partitioned_acceleration_structure`.
+experimental-partitioned-acceleration-structure = [
+    "vulkan",
+    "wgpu-core-deps-windows-linux-android/experimental-partitioned-acceleration-structure",
+]
 ## OpenGL backend, only available on Windows, Linux, Android, and Emscripten
 gles = [
     "wgpu-core-deps-windows-linux-android/gles",

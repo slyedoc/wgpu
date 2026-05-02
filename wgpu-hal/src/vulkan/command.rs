@@ -152,6 +152,46 @@ impl super::CommandEncoder {
             cluster_fns.cmd_build_indirect(self.active, info);
         }
     }
+
+    /// Records `vkCmdBuildPartitionedAccelerationStructuresNV` into the active
+    /// command buffer.
+    ///
+    /// Builds a partitioned top-level acceleration structure. Required to
+    /// instance cluster-built BLASes for ray queries -- the standard KHR
+    /// TLAS path doesn't traverse cluster-AS internal references.
+    ///
+    /// Reachable from outside wgpu-hal via
+    /// [`wgpu::CommandEncoder::as_hal::<Api>`][api], gated on the
+    /// `experimental-partitioned-acceleration-structure` Cargo feature and
+    /// [`Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE`][feat].
+    ///
+    /// # Safety
+    ///
+    /// Caller must uphold all rules of
+    /// `vkCmdBuildPartitionedAccelerationStructuresNV`, including: the
+    /// destination buffer is large enough for the size returned by the
+    /// extension's build-sizes query; the per-instance / per-partition
+    /// descriptor buffers are fully populated and synchronized; and the
+    /// device was created with the `partitionedAccelerationStructure`
+    /// feature enabled.
+    ///
+    /// [api]: https://docs.rs/wgpu/latest/wgpu/struct.CommandEncoder.html#method.as_hal
+    /// [feat]: wgt::Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE
+    #[cfg(feature = "experimental-partitioned-acceleration-structure")]
+    pub unsafe fn cmd_build_partitioned_acceleration_structures(
+        &self,
+        info: &vk::BuildPartitionedAccelerationStructureInfoNV<'_>,
+    ) {
+        let fns = self
+            .device
+            .extension_fns
+            .partitioned_acceleration_structure
+            .as_ref()
+            .expect("Feature `EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE` not enabled");
+        unsafe {
+            fns.cmd_build(self.active, info);
+        }
+    }
 }
 
 impl crate::CommandEncoder for super::CommandEncoder {

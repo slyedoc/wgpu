@@ -65,6 +65,16 @@ experimental-cluster-acceleration-structure = [
     "wgpu-core?/experimental-cluster-acceleration-structure",
 ]
 
+## Enables `VK_NV_partitioned_acceleration_structure` in the Vulkan backend,
+## forwarded from `wgpu-hal`. Exposes the
+## `Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE` bit. Required to
+## ray-query against cluster-built BLASes -- the standard KHR TLAS path doesn't
+## traverse them. Vulkan-only.
+experimental-partitioned-acceleration-structure = [
+    "vulkan",
+    "wgpu-core?/experimental-partitioned-acceleration-structure",
+]
+
 ## Enables the OpenGL/GLES backend on Windows, Linux, Android, and Emscripten.
 gles = ["wgpu-core?/gles"]
 
