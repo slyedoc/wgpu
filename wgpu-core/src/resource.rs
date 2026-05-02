@@ -2470,7 +2470,11 @@ pub struct Tlas {
     pub(crate) update_mode: wgt::AccelerationStructureUpdateMode,
     pub(crate) built_index: RwLock<Option<NonZeroU64>>,
     pub(crate) dependencies: RwLock<Vec<Arc<Blas>>>,
-    pub(crate) instance_buffer: ManuallyDrop<Box<dyn hal::DynBuffer>>,
+    /// `None` when this `Tlas` wraps a foreign acceleration structure created
+    /// outside of `wgpu` (see `Device::create_tlas_from_hal`). Such tlases
+    /// cannot be rebuilt through `wgpu`'s build path; the build code rejects
+    /// them up front.
+    pub(crate) instance_buffer: Option<ManuallyDrop<Box<dyn hal::DynBuffer>>>,
     /// The `label` from the descriptor used to create the resource.
     pub(crate) label: String,
     pub(crate) tracking_data: TrackingData,
@@ -2483,8 +2487,10 @@ impl Drop for Tlas {
             if let Some(structure) = self.raw.take() {
                 self.device.raw().destroy_acceleration_structure(structure);
             }
-            let buffer = ManuallyDrop::take(&mut self.instance_buffer);
-            self.device.raw().destroy_buffer(buffer);
+            if let Some(slot) = self.instance_buffer.as_mut() {
+                let buffer = ManuallyDrop::take(slot);
+                self.device.raw().destroy_buffer(buffer);
+            }
         }
     }
 }

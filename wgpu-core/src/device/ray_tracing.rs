@@ -1,5 +1,6 @@
-use alloc::{string::ToString as _, sync::Arc, vec::Vec};
+use alloc::{boxed::Box, string::ToString as _, sync::Arc, vec::Vec};
 use core::mem::{size_of, ManuallyDrop};
+use core::num::NonZeroU64;
 
 #[cfg(feature = "trace")]
 use crate::device::trace::{Action, IntoTrace};
@@ -289,11 +290,62 @@ impl Device {
             update_mode: desc.update_mode,
             built_index: RwLock::new(rank::TLAS_BUILT_INDEX, None),
             dependencies: RwLock::new(rank::TLAS_DEPENDENCIES, Vec::new()),
-            instance_buffer: ManuallyDrop::new(instance_buffer),
+            instance_buffer: Some(ManuallyDrop::new(instance_buffer)),
             label: desc.label.to_string(),
             max_instance_count: desc.max_instances,
             tracking_data: TrackingData::new(self.tracker_indices.tlas_s.clone()),
         }))
+    }
+
+    /// Wrap an externally-built `wgpu-hal` acceleration structure as a `Tlas`.
+    ///
+    /// This is the "I built the AS through `wgpu-hal` directly, now treat it as
+    /// a `wgpu::Tlas` for descriptor binding" entry point. It bypasses
+    /// [`Device::create_tlas`]'s build-state machinery: the returned `Tlas` is
+    /// marked already built, has no BLAS dependency tracking, and has no
+    /// instance buffer (it cannot be rebuilt through `wgpu`'s build path —
+    /// attempting to do so returns
+    /// [`crate::ray_tracing::BuildAccelerationStructureError::CannotRebuildForeignTlas`]).
+    ///
+    /// The returned `Tlas` *does* fully own the supplied hal acceleration
+    /// structure: it will call `Device::destroy_acceleration_structure` on
+    /// drop. Callers must not destroy the underlying handle themselves.
+    ///
+    /// # Safety
+    ///
+    /// - `hal_acceleration_structure` must have been created on this device's
+    ///   underlying hal device.
+    /// - The acceleration structure must be fully built before this call.
+    /// - `desc.flags` and `desc.max_instances` must match the build the caller
+    ///   actually performed (they are surfaced through the public-facing
+    ///   `Tlas` API and used by some validation paths).
+    pub unsafe fn create_tlas_from_hal(
+        self: &Arc<Self>,
+        hal_acceleration_structure: Box<dyn hal::DynAccelerationStructure>,
+        desc: &resource::TlasDescriptor,
+    ) -> Arc<resource::Tlas> {
+        // Pre-built foreign tlases are always considered "built". Use a
+        // sentinel index of 1 so the
+        // `command::ray_tracing::ValidateAsActionsError::UsedUnbuiltTlas`
+        // guard at bind time passes naturally.
+        let foreign_built_index = NonZeroU64::new(1).expect("1 is non-zero");
+
+        Arc::new(resource::Tlas {
+            raw: Snatchable::new(hal_acceleration_structure),
+            device: self.clone(),
+            // Foreign builds carry no wgpu-knowable build sizes; this field is
+            // only consumed by wgpu's own build path, which we reject for
+            // foreign tlases.
+            size_info: hal::AccelerationStructureBuildSizes::default(),
+            flags: desc.flags,
+            update_mode: desc.update_mode,
+            built_index: RwLock::new(rank::TLAS_BUILT_INDEX, Some(foreign_built_index)),
+            dependencies: RwLock::new(rank::TLAS_DEPENDENCIES, Vec::new()),
+            instance_buffer: None,
+            label: desc.label.to_string(),
+            max_instance_count: desc.max_instances,
+            tracking_data: TrackingData::new(self.tracker_indices.tlas_s.clone()),
+        })
     }
 }
 
@@ -374,6 +426,38 @@ impl Global {
 
         let id = fid.assign(Fallible::Invalid(Arc::new(error.to_string())));
         (id, Some(error))
+    }
+
+    /// # Safety
+    ///
+    /// - `hal_acceleration_structure` must have been created on `device_id`'s
+    ///   underlying hal device.
+    /// - The acceleration structure must be fully built.
+    /// - `desc.flags` and `desc.max_instances` must accurately reflect the
+    ///   build the caller actually performed.
+    pub unsafe fn device_create_tlas_from_hal<A: hal::Api>(
+        &self,
+        hal_acceleration_structure: A::AccelerationStructure,
+        device_id: id::DeviceId,
+        desc: &resource::TlasDescriptor,
+        id_in: Option<TlasId>,
+    ) -> TlasId {
+        profiling::scope!("Device::create_tlas_from_hal");
+
+        let fid = self.hub.tlas_s.prepare(id_in);
+        let device = self.hub.devices.get(device_id);
+
+        // SAFETY: Forwarded to caller via this function's safety contract.
+        let tlas = unsafe {
+            device.create_tlas_from_hal(Box::new(hal_acceleration_structure), desc)
+        };
+
+        // Tracing intentionally omitted: a foreign-built acceleration
+        // structure cannot be reproduced by replay.
+
+        let id = fid.assign(Fallible::Valid(tlas));
+        api_log!("Device::create_tlas_from_hal -> {id:?}");
+        id
     }
 
     pub fn blas_drop(&self, blas_id: BlasId) {
