@@ -728,10 +728,8 @@ impl AccelerationStructure {
     /// Raw `VkAccelerationStructureKHR` handle.
     ///
     /// Useful when an external code path needs to drive the AS at the
-    /// Vulkan level -- for example, passing its device address as the
-    /// `dstAccelerationStructureData` of a
-    /// `VK_NV_partitioned_acceleration_structure` build, or wrapping the
-    /// AS as a TLAS instance reference.
+    /// Vulkan level -- for example, wrapping the AS as a TLAS instance
+    /// reference.
     ///
     /// # Safety
     ///
@@ -742,6 +740,21 @@ impl AccelerationStructure {
     ///   / external build must complete before any ray query reads it).
     pub unsafe fn raw_handle(&self) -> vk::AccelerationStructureKHR {
         self.raw
+    }
+
+    /// Raw `VkBuffer` backing this acceleration structure.
+    ///
+    /// The AS is created with `offset = 0` in this buffer, so the buffer's
+    /// device address (via `vkGetBufferDeviceAddressKHR`) doubles as the
+    /// AS storage's device address.
+    ///
+    /// # Safety
+    ///
+    /// - The buffer handle must not be manually destroyed.
+    /// - The caller must respect the AS's storage layout (don't write
+    ///   arbitrary bytes into it).
+    pub unsafe fn raw_buffer(&self) -> vk::Buffer {
+        self.buffer
     }
 }
 
