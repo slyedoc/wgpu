@@ -629,11 +629,29 @@ impl PhysicalDeviceFeatures {
             vulkan_memory_model: if device_api_version >= vk::API_VERSION_1_2
                 || enabled_extensions.contains(&khr::vulkan_memory_model::NAME)
             {
-                let needed =
-                    requested_features.contains(wgt::Features::EXPERIMENTAL_COOPERATIVE_MATRIX);
+                // Naga's SPIR-V backend emits `OpMemoryModel Vulkan`
+                // and `Device`-scope atomics whenever any compute
+                // shader uses `atomicCompareExchangeWeak`,
+                // `atomicMax`, etc. Both require the
+                // `vulkanMemoryModel` AND
+                // `vulkanMemoryModelDeviceScope` device features to
+                // be enabled, otherwise SPIR-V validation rejects
+                // the shader module
+                // (VUID-RuntimeSpirv-vulkanMemoryModel-06265).
+                //
+                // Previously this enable was gated on requesting
+                // EXPERIMENTAL_COOPERATIVE_MATRIX as a side-effect
+                // hack -- callers that didn't request that feature
+                // saw atomic-using shaders trip the VUID at every
+                // pipeline create. Make the enable unconditional
+                // when the underlying device feature is available
+                // (the device feature is itself the result of an
+                // explicit Vulkan-1.2 / extension check on the
+                // outer `if`, so this only turns on when supported).
                 Some(
                     vk::PhysicalDeviceVulkanMemoryModelFeaturesKHR::default()
-                        .vulkan_memory_model(needed),
+                        .vulkan_memory_model(true)
+                        .vulkan_memory_model_device_scope(true),
                 )
             } else {
                 None
