@@ -95,6 +95,12 @@ bitflags::bitflags! {
         const BLAS_INPUT = 1 << 10;
         /// Allows a buffer to be used as input for a top level acceleration structure build
         const TLAS_INPUT = 1 << 11;
+        /// Allows a buffer to back acceleration structure storage. Required for the
+        /// `dstImplicitData` / `dstAddressesArray` outputs of NV cluster_AS indirect
+        /// builds (`VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR`).
+        /// Pairs with `STORAGE` + `BLAS_INPUT` when the same buffer needs to be
+        /// both an AS-build output and a compute SSBO input.
+        const ACCELERATION_STRUCTURE_STORAGE = 1 << 12;
     }
 }
 
@@ -138,12 +144,17 @@ bitflags::bitflags! {
         const TOP_LEVEL_ACCELERATION_STRUCTURE_INPUT = 1 << 13;
         /// A buffer used to store the compacted size of an acceleration structure
         const ACCELERATION_STRUCTURE_QUERY = 1 << 14;
+        /// Buffer used to back AS storage (the destination of an AS build).
+        /// `VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR`. Required
+        /// by `dstImplicitData` / `dstAddressesArray` of NV cluster_AS
+        /// indirect builds, and by any wgpu-wrapped AS-output buffer.
+        const ACCELERATION_STRUCTURE_STORAGE = 1 << 15;
         /// The combination of states that a buffer may be in _at the same time_.
         const INCLUSIVE = Self::MAP_READ.bits() | Self::COPY_SRC.bits() |
             Self::INDEX.bits() | Self::VERTEX.bits() | Self::UNIFORM.bits() |
             Self::STORAGE_READ_ONLY.bits() | Self::INDIRECT.bits() | Self::BOTTOM_LEVEL_ACCELERATION_STRUCTURE_INPUT.bits() | Self::TOP_LEVEL_ACCELERATION_STRUCTURE_INPUT.bits();
         /// The combination of states that a buffer must exclusively be in.
-        const EXCLUSIVE = Self::MAP_WRITE.bits() | Self::COPY_DST.bits() | Self::STORAGE_READ_WRITE.bits() | Self::ACCELERATION_STRUCTURE_SCRATCH.bits();
+        const EXCLUSIVE = Self::MAP_WRITE.bits() | Self::COPY_DST.bits() | Self::STORAGE_READ_WRITE.bits() | Self::ACCELERATION_STRUCTURE_SCRATCH.bits() | Self::ACCELERATION_STRUCTURE_STORAGE.bits();
     }
 }
 

@@ -567,6 +567,10 @@ pub fn map_buffer_usage(usage: wgt::BufferUses) -> vk::BufferUsageFlags {
     if usage.intersects(wgt::BufferUses::ACCELERATION_STRUCTURE_QUERY) {
         flags |= vk::BufferUsageFlags::TRANSFER_DST;
     }
+    if usage.contains(wgt::BufferUses::ACCELERATION_STRUCTURE_STORAGE) {
+        flags |= vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
+            | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS;
+    }
     flags
 }
 
@@ -632,6 +636,11 @@ pub fn map_buffer_usage_to_barrier(
     if usage.contains(wgt::BufferUses::ACCELERATION_STRUCTURE_QUERY) {
         stages |= vk::PipelineStageFlags::TRANSFER;
         access |= vk::AccessFlags::TRANSFER_WRITE;
+    }
+    if usage.contains(wgt::BufferUses::ACCELERATION_STRUCTURE_STORAGE) {
+        stages |= vk::PipelineStageFlags::ACCELERATION_STRUCTURE_BUILD_KHR;
+        access |= vk::AccessFlags::ACCELERATION_STRUCTURE_READ_KHR
+            | vk::AccessFlags::ACCELERATION_STRUCTURE_WRITE_KHR;
     }
 
     (stages, access)
