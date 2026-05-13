@@ -860,23 +860,15 @@ impl crate::CommandEncoder for super::CommandEncoder {
         };
 
         // Build the input chain. `op_input` is held by-pointer so its
-        // payload must outlive the call -- pin it as a local first.
-        let bottom_level_input = match info.input.op_input {
-            wgt::ClusterAccelerationStructureOpInput::ClustersBottomLevel(ref bl) => {
-                vk::ClusterAccelerationStructureClustersBottomLevelInputNV::default()
-                    .max_total_cluster_count(bl.max_total_cluster_count)
-                    .max_cluster_count_per_acceleration_structure(
-                        bl.max_cluster_count_per_acceleration_structure,
-                    )
-            }
-        };
-        let op_input = match info.input.op_type {
-            wgt::ClusterAccelerationStructureOpType::BuildClustersBottomLevel => {
-                vk::ClusterAccelerationStructureOpInputNV {
-                    p_clusters_bottom_level: ptr::from_ref(&bottom_level_input).cast_mut(),
-                }
-            }
-        };
+        // payload must outlive the call -- pin both variants as locals
+        // (the unused variant is a zero default no driver code reads).
+        let (bottom_level_input, triangle_cluster_input) =
+            super::device::build_cluster_op_input_locals(&info.input.op_input);
+        let op_input = super::device::make_cluster_op_input(
+            info.input.op_type,
+            &bottom_level_input,
+            &triangle_cluster_input,
+        );
         let input_info = vk::ClusterAccelerationStructureInputInfoNV::default()
             .max_acceleration_structure_count(info.input.max_acceleration_structure_count)
             .flags(conv::map_acceleration_structure_flags(info.input.flags))

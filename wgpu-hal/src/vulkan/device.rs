@@ -977,6 +977,68 @@ impl super::Device {
 /// Lives here (not in `conv`) because the surrounding cluster_AS bindings
 /// are themselves Vulkan-only; sharing this code with non-Vulkan backends
 /// would require gating the whole helper module.
+/// Construct the `op_input` payload locals for a cluster_AS build size
+/// query or indirect build.
+///
+/// `VkClusterAccelerationStructureOpInputNV` is a union holding a pointer
+/// to whichever per-op-type input struct matches `op_type`. The pointed-to
+/// struct must outlive the union, so we materialise BOTH variants as
+/// locals and let the caller pick. The unused variant is a zero-cost
+/// default that no driver code dereferences.
+#[cfg(feature = "experimental-cluster-acceleration-structure")]
+pub(super) fn build_cluster_op_input_locals(
+    op_input: &wgt::ClusterAccelerationStructureOpInput,
+) -> (
+    vk::ClusterAccelerationStructureClustersBottomLevelInputNV<'static>,
+    vk::ClusterAccelerationStructureTriangleClusterInputNV<'static>,
+) {
+    let mut bottom_level = vk::ClusterAccelerationStructureClustersBottomLevelInputNV::default();
+    let mut triangle_cluster = vk::ClusterAccelerationStructureTriangleClusterInputNV::default();
+    match op_input {
+        wgt::ClusterAccelerationStructureOpInput::ClustersBottomLevel(input) => {
+            bottom_level = bottom_level
+                .max_total_cluster_count(input.max_total_cluster_count)
+                .max_cluster_count_per_acceleration_structure(
+                    input.max_cluster_count_per_acceleration_structure,
+                );
+        }
+        wgt::ClusterAccelerationStructureOpInput::TriangleCluster(input) => {
+            triangle_cluster = triangle_cluster
+                .vertex_format(vk::Format::from_raw(input.vertex_format as i32))
+                .max_geometry_index_value(input.max_geometry_index_value)
+                .max_cluster_unique_geometry_count(input.max_cluster_unique_geometry_count)
+                .max_cluster_triangle_count(input.max_cluster_triangle_count)
+                .max_cluster_vertex_count(input.max_cluster_vertex_count)
+                .max_total_triangle_count(input.max_total_triangle_count)
+                .max_total_vertex_count(input.max_total_vertex_count)
+                .min_position_truncate_bit_count(input.min_position_truncate_bit_count);
+        }
+    }
+    (bottom_level, triangle_cluster)
+}
+
+/// Pick the right `op_input` union variant for `op_type`, pointing at the
+/// matching local from [`build_cluster_op_input_locals`].
+#[cfg(feature = "experimental-cluster-acceleration-structure")]
+pub(super) fn make_cluster_op_input<'a>(
+    op_type: wgt::ClusterAccelerationStructureOpType,
+    bottom_level: &'a vk::ClusterAccelerationStructureClustersBottomLevelInputNV<'a>,
+    triangle_cluster: &'a vk::ClusterAccelerationStructureTriangleClusterInputNV<'a>,
+) -> vk::ClusterAccelerationStructureOpInputNV<'a> {
+    match op_type {
+        wgt::ClusterAccelerationStructureOpType::BuildClustersBottomLevel => {
+            vk::ClusterAccelerationStructureOpInputNV {
+                p_clusters_bottom_level: ptr::from_ref(bottom_level).cast_mut(),
+            }
+        }
+        wgt::ClusterAccelerationStructureOpType::BuildTriangleCluster => {
+            vk::ClusterAccelerationStructureOpInputNV {
+                p_triangle_clusters: ptr::from_ref(triangle_cluster).cast_mut(),
+            }
+        }
+    }
+}
+
 #[cfg(feature = "experimental-cluster-acceleration-structure")]
 pub(super) fn map_cluster_op_type(
     op: wgt::ClusterAccelerationStructureOpType,
@@ -984,6 +1046,9 @@ pub(super) fn map_cluster_op_type(
     match op {
         wgt::ClusterAccelerationStructureOpType::BuildClustersBottomLevel => {
             vk::ClusterAccelerationStructureOpTypeNV::BUILD_CLUSTERS_BOTTOM_LEVEL
+        }
+        wgt::ClusterAccelerationStructureOpType::BuildTriangleCluster => {
+            vk::ClusterAccelerationStructureOpTypeNV::BUILD_TRIANGLE_CLUSTER
         }
     }
 }
@@ -2603,25 +2668,19 @@ impl crate::Device for super::Device {
         &self,
         desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
     ) -> wgt::ClusterAccelerationStructureBuildSizes {
-        // Convert the wgpu-types descriptor into the vk:: chain.
-        // `op_input` is held by-pointer in vk::ClusterAccelerationStructureOpInputNV,
-        // so the inner struct must outlive the call. Pin it as a local here.
-        let bottom_level_input = match desc.op_input {
-            wgt::ClusterAccelerationStructureOpInput::ClustersBottomLevel(ref input) => {
-                vk::ClusterAccelerationStructureClustersBottomLevelInputNV::default()
-                    .max_total_cluster_count(input.max_total_cluster_count)
-                    .max_cluster_count_per_acceleration_structure(
-                        input.max_cluster_count_per_acceleration_structure,
-                    )
-            }
-        };
-        let op_input = match desc.op_type {
-            wgt::ClusterAccelerationStructureOpType::BuildClustersBottomLevel => {
-                vk::ClusterAccelerationStructureOpInputNV {
-                    p_clusters_bottom_level: ptr::from_ref(&bottom_level_input).cast_mut(),
-                }
-            }
-        };
+        // Convert the wgpu-types descriptor into the vk:: chain. `op_input`
+        // is held by-pointer in vk::ClusterAccelerationStructureOpInputNV,
+        // so the inner struct must outlive the call -- pin it as a local.
+        // Both variants are constructed up-front so each has a stable
+        // address, then we pick which pointer to pass.
+        let (bottom_level_input, triangle_cluster_input) = build_cluster_op_input_locals(
+            &desc.op_input,
+        );
+        let op_input = make_cluster_op_input(
+            desc.op_type,
+            &bottom_level_input,
+            &triangle_cluster_input,
+        );
         let info = vk::ClusterAccelerationStructureInputInfoNV::default()
             .max_acceleration_structure_count(desc.max_acceleration_structure_count)
             .flags(conv::map_acceleration_structure_flags(desc.flags))

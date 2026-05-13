@@ -225,6 +225,16 @@ pub enum ClusterAccelerationStructureOpType {
     /// output is a BLAS whose contents are those clusters aggregated.
     /// Pairs with [`ClusterAccelerationStructureOpInput::ClustersBottomLevel`].
     BuildClustersBottomLevel,
+    /// Build per-cluster CLASes from triangle geometry.
+    ///
+    /// This is the upload-time CLAS construction path: each per-op input
+    /// describes one cluster's triangles (via the
+    /// `VkClusterAccelerationStructureBuildTriangleClusterInfoNV` struct
+    /// in the user-supplied `src_infos_array`), and the output is a
+    /// freshly-built CLAS whose device address is written to
+    /// `dst_addresses_array`. Pairs with
+    /// [`ClusterAccelerationStructureOpInput::TriangleCluster`].
+    BuildTriangleCluster,
 }
 
 /// How destination addresses are supplied to a cluster AS build.
@@ -255,6 +265,36 @@ pub struct ClusterAccelerationStructureClustersBottomLevelInput {
     pub max_cluster_count_per_acceleration_structure: u32,
 }
 
+/// Per-op input shape for `BuildTriangleCluster`.
+///
+/// Mirrors `VkClusterAccelerationStructureTriangleClusterInputNV`. These
+/// are *upper-bound* counts used by `Device::get_cluster_build_sizes` to
+/// allocate scratch and storage.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ClusterAccelerationStructureTriangleClusterInput {
+    /// Vertex format encoded as a raw `VkFormat` enum value. Aurora uses
+    /// `VK_FORMAT_R32G32B32_SFLOAT` (= 106). Mirrored verbatim so callers
+    /// don't need to depend on ash.
+    pub vertex_format: u32,
+    /// Maximum geometry-index value any single triangle uses (4-bit slot,
+    /// max 15 per NV spec).
+    pub max_geometry_index_value: u32,
+    /// Maximum number of unique geometries referenced across the build
+    /// (NV spec caps at 10).
+    pub max_cluster_unique_geometry_count: u32,
+    /// Maximum triangle count in any single output cluster.
+    pub max_cluster_triangle_count: u32,
+    /// Maximum vertex count in any single output cluster.
+    pub max_cluster_vertex_count: u32,
+    /// Total triangle count across all output clusters.
+    pub max_total_triangle_count: u32,
+    /// Total vertex count across all output clusters.
+    pub max_total_vertex_count: u32,
+    /// Minimum position truncate bit count (passed through; 0 = no truncation).
+    pub min_position_truncate_bit_count: u32,
+}
+
 /// Op-type-specific input data for a cluster AS build.
 ///
 /// Variant must match the `op_type` selected in
@@ -264,6 +304,8 @@ pub struct ClusterAccelerationStructureClustersBottomLevelInput {
 pub enum ClusterAccelerationStructureOpInput {
     /// Input for [`ClusterAccelerationStructureOpType::BuildClustersBottomLevel`].
     ClustersBottomLevel(ClusterAccelerationStructureClustersBottomLevelInput),
+    /// Input for [`ClusterAccelerationStructureOpType::BuildTriangleCluster`].
+    TriangleCluster(ClusterAccelerationStructureTriangleClusterInput),
 }
 
 /// Descriptor passed to `Device::get_cluster_build_sizes` and shared by the
