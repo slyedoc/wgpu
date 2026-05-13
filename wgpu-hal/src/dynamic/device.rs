@@ -151,6 +151,11 @@ pub trait DynDevice: DynResource {
         &self,
         desc: &GetAccelerationStructureBuildSizesDescriptor<dyn DynBuffer>,
     ) -> AccelerationStructureBuildSizes;
+    /// See [`Device::get_cluster_acceleration_structure_build_sizes`].
+    unsafe fn get_cluster_acceleration_structure_build_sizes(
+        &self,
+        desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::ClusterAccelerationStructureBuildSizes;
     unsafe fn get_acceleration_structure_device_address(
         &self,
         acceleration_structure: &dyn DynAccelerationStructure,
@@ -523,6 +528,13 @@ impl<D: Device + DynResource> DynDevice for D {
             flags: desc.flags,
         };
         unsafe { D::get_acceleration_structure_build_sizes(self, &desc) }
+    }
+
+    unsafe fn get_cluster_acceleration_structure_build_sizes(
+        &self,
+        desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::ClusterAccelerationStructureBuildSizes {
+        unsafe { D::get_cluster_acceleration_structure_build_sizes(self, desc) }
     }
 
     unsafe fn get_acceleration_structure_device_address(

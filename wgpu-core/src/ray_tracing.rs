@@ -66,6 +66,25 @@ impl WebGpuError for CreateBlasError {
     }
 }
 
+/// Errors returned from
+/// [`Global::device_get_cluster_acceleration_structure_build_sizes`].
+#[derive(Clone, Debug, Error)]
+pub enum GetClusterAsBuildSizesError {
+    #[error(transparent)]
+    Device(#[from] DeviceError),
+    #[error(transparent)]
+    MissingFeatures(#[from] MissingFeatures),
+}
+
+impl WebGpuError for GetClusterAsBuildSizesError {
+    fn webgpu_error_type(&self) -> ErrorType {
+        match self {
+            Self::Device(e) => e.webgpu_error_type(),
+            Self::MissingFeatures(e) => e.webgpu_error_type(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Error)]
 pub enum CreateTlasError {
     #[error(transparent)]

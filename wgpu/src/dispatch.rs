@@ -193,6 +193,13 @@ pub trait DeviceInterface: CommonTraits {
         sizes: crate::BlasGeometrySizeDescriptors,
     ) -> (Option<u64>, DispatchBlas);
     fn create_tlas(&self, desc: &crate::CreateTlasDescriptor<'_>) -> DispatchTlas;
+    /// Pure query for `VK_NV_cluster_acceleration_structure` build sizes.
+    /// Backend should error if `EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`
+    /// isn't enabled.
+    fn get_cluster_acceleration_structure_build_sizes(
+        &self,
+        desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::ClusterAccelerationStructureBuildSizes;
     fn create_sampler(&self, desc: &crate::SamplerDescriptor<'_>) -> DispatchSampler;
     fn create_query_set(&self, desc: &crate::QuerySetDescriptor<'_>) -> DispatchQuerySet;
     fn create_command_encoder(

@@ -1149,6 +1149,32 @@ pub trait Device: WasmNotSendSync {
         &self,
         desc: &GetAccelerationStructureBuildSizesDescriptor<<Self::A as Api>::Buffer>,
     ) -> AccelerationStructureBuildSizes;
+
+    /// Returns the device-local memory upper bounds required for an indirect
+    /// `VK_NV_cluster_acceleration_structure` build of the shape described
+    /// by `desc`.
+    ///
+    /// Backends that don't expose
+    /// [`wgt::Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`] should
+    /// never see a call here; wgpu-core validates the feature before
+    /// dispatching. The default impl panics so missing implementations
+    /// surface loudly during development.
+    ///
+    /// # Safety
+    ///
+    /// The device must have been created with the
+    /// `clusterAccelerationStructure` Vulkan feature enabled (gated by
+    /// [`wgt::Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`]).
+    unsafe fn get_cluster_acceleration_structure_build_sizes(
+        &self,
+        _desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::ClusterAccelerationStructureBuildSizes {
+        unreachable!(
+            "get_cluster_acceleration_structure_build_sizes called on a backend that doesn't \
+             support EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE; wgpu-core should have \
+             gated this call on the feature flag",
+        )
+    }
     unsafe fn get_acceleration_structure_device_address(
         &self,
         acceleration_structure: &<Self::A as Api>::AccelerationStructure,

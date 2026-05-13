@@ -14,7 +14,7 @@ use crate::{
     lock::RwLock,
     lock::{rank, Mutex},
     ray_tracing::BlasPrepareCompactError,
-    ray_tracing::{CreateBlasError, CreateTlasError},
+    ray_tracing::{CreateBlasError, CreateTlasError, GetClusterAsBuildSizesError},
     resource,
     resource::{
         BlasCompactCallback, BlasCompactState, Fallible, InvalidResourceError, TrackingData,
@@ -297,6 +297,29 @@ impl Device {
         }))
     }
 
+    /// Returns the device-memory upper bounds for an indirect
+    /// `VK_NV_cluster_acceleration_structure` build of the shape described
+    /// by `desc`.
+    ///
+    /// This is the safe wgpu-core entry point to
+    /// [`hal::Device::get_cluster_acceleration_structure_build_sizes`]; it
+    /// gates on [`Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`]
+    /// before dispatching so backends that don't expose cluster_AS never
+    /// see the call.
+    pub fn get_cluster_acceleration_structure_build_sizes(
+        self: &Arc<Self>,
+        desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
+    ) -> Result<wgt::ClusterAccelerationStructureBuildSizes, GetClusterAsBuildSizesError> {
+        self.check_is_valid()?;
+        self.require_features(Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE)?;
+        // SAFETY: feature gate above asserts the backend implements this
+        // hal method, and the descriptor contents are validated by the
+        // wgpu-types type system (variants must match op_type/op_mode).
+        let sizes =
+            unsafe { self.raw().get_cluster_acceleration_structure_build_sizes(desc) };
+        Ok(sizes)
+    }
+
     /// Wrap an externally-built `wgpu-hal` acceleration structure as a `Tlas`.
     ///
     /// This is the "I built the AS through `wgpu-hal` directly, now treat it as
@@ -350,6 +373,21 @@ impl Device {
 }
 
 impl Global {
+    /// Forwards [`Device::get_cluster_acceleration_structure_build_sizes`].
+    ///
+    /// Pure query: no resources are created, no commands are recorded. Returns
+    /// the upper-bound storage / scratch sizes the cluster_AS indirect build
+    /// will require given the descriptor shape.
+    pub fn device_get_cluster_acceleration_structure_build_sizes(
+        &self,
+        device_id: id::DeviceId,
+        desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
+    ) -> Result<wgt::ClusterAccelerationStructureBuildSizes, GetClusterAsBuildSizesError> {
+        profiling::scope!("Device::get_cluster_acceleration_structure_build_sizes");
+        let device = self.hub.devices.get(device_id);
+        device.get_cluster_acceleration_structure_build_sizes(desc)
+    }
+
     pub fn device_create_blas(
         &self,
         device_id: id::DeviceId,
