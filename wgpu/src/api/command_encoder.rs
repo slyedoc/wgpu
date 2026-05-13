@@ -541,9 +541,13 @@ pub struct ClusterAccelerationStructureBuildInfo<'a> {
 /// array of u64 device addresses). `size` is the total covered byte size.
 #[derive(Clone, Copy, Debug)]
 pub struct ClusterAccelerationStructureBufferRegion<'a> {
+    /// Backing buffer for the strided region.
     pub buffer: &'a Buffer,
+    /// Byte offset of the region's first entry inside `buffer`.
     pub offset: u64,
+    /// Byte stride between consecutive entries (e.g. 8 for a u64 array).
     pub stride: u64,
+    /// Total covered byte size from `offset`.
     pub size: u64,
 }
 

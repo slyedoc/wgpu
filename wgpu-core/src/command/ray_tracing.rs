@@ -30,7 +30,7 @@ use crate::{
 };
 use crate::{lock::RwLockWriteGuard, resource::RawResourceAccess};
 
-use crate::id::{BlasId, TlasId};
+use crate::id::{BlasId, BufferId, TlasId};
 
 struct BlasStore<'a> {
     blas: Arc<Blas>,
@@ -491,11 +491,11 @@ impl Global {
         let mut cmd_buf_data = cmd_enc.data.lock();
         cmd_buf_data.push_with(
             || -> Result<_, crate::ray_tracing::BuildPartitionedAsError> {
-                let resolve_buffer = |id: crate::id::BufferId| -> Result<_, _> {
+                let resolve_buffer = |id: BufferId| -> Result<_, _> {
                     self.resolve_buffer_id(id)
                         .map_err(crate::ray_tracing::BuildPartitionedAsError::InvalidResource)
                 };
-                let resolve_tlas = |id: crate::id::TlasId| -> Result<_, _> {
+                let resolve_tlas = |id: TlasId| -> Result<_, _> {
                     self.resolve_tlas_id(id)
                         .map_err(crate::ray_tracing::BuildPartitionedAsError::InvalidResource)
                 };
@@ -537,7 +537,7 @@ impl Global {
         let mut cmd_buf_data = cmd_enc.data.lock();
         cmd_buf_data.push_with(
             || -> Result<_, crate::ray_tracing::BuildClusterAsError> {
-                let resolve = |id: crate::id::BufferId| -> Result<_, _> {
+                let resolve = |id: BufferId| -> Result<_, _> {
                     self.resolve_buffer_id(id)
                         .map_err(crate::ray_tracing::BuildClusterAsError::InvalidResource)
                 };

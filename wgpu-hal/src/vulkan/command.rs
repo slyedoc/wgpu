@@ -1,7 +1,7 @@
 use super::conv;
 use arrayvec::ArrayVec;
 use ash::vk;
-use core::{mem, ops::Range, ptr};
+use core::{mem, ops::Range};
 use hashbrown::hash_map::Entry;
 
 const ALLOCATION_GRANULARITY: u32 = 16;
