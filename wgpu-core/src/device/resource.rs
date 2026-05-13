@@ -1014,10 +1014,11 @@ impl Device {
             });
         }
 
-        if desc
-            .usage
-            .intersects(wgt::BufferUsages::BLAS_INPUT | wgt::BufferUsages::TLAS_INPUT)
-        {
+        if desc.usage.intersects(
+            wgt::BufferUsages::BLAS_INPUT
+                | wgt::BufferUsages::TLAS_INPUT
+                | wgt::BufferUsages::ACCELERATION_STRUCTURE_STORAGE,
+        ) {
             self.require_features(wgt::Features::EXPERIMENTAL_RAY_QUERY)?;
         }
 

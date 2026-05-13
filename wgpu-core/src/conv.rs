@@ -76,6 +76,10 @@ pub fn map_buffer_usage(usage: wgt::BufferUsages) -> wgt::BufferUses {
         wgt::BufferUses::TOP_LEVEL_ACCELERATION_STRUCTURE_INPUT,
         usage.contains(wgt::BufferUsages::TLAS_INPUT),
     );
+    u.set(
+        wgt::BufferUses::ACCELERATION_STRUCTURE_STORAGE,
+        usage.contains(wgt::BufferUsages::ACCELERATION_STRUCTURE_STORAGE),
+    );
     u
 }
 
