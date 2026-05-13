@@ -195,3 +195,116 @@ pub const TRANSFORM_BUFFER_ALIGNMENT: crate::BufferAddress = 16;
 
 /// Alignment requirement for instance buffers used in acceleration structure builds (`build_acceleration_structures_unsafe_tlas`)
 pub const INSTANCE_BUFFER_ALIGNMENT: crate::BufferAddress = 16;
+
+// ============================================================================
+// VK_NV_cluster_acceleration_structure types
+// ============================================================================
+//
+// These describe a GPU-driven build of bottom-level acceleration structures
+// composed of pre-built cluster acceleration structures (CLAS). The build is
+// indirect: per-op input args, op count, and CLAS device addresses all live in
+// device memory so a compute shader can emit them earlier in the same frame.
+//
+// Mirrors VkClusterAccelerationStructureInputInfoNV (op classification) and
+// VkClusterAccelerationStructureCommandsInfoNV (per-build buffer slots). The
+// safe wrapper for these lives in `wgpu::CommandEncoder` and takes typed
+// references to wgpu Buffers; it converts to the vk:: descriptor internally
+// and registers the right BufferUses with the tracker.
+
+/// Build operation type for a cluster acceleration structure build.
+///
+/// Selects which kind of clusters or BLASes the indirect build produces.
+/// Maps 1:1 to `VkClusterAccelerationStructureOpTypeNV`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum ClusterAccelerationStructureOpType {
+    /// Build per-instance BLASes from a list of CLAS device addresses.
+    ///
+    /// This is the Mega-Geometry "per-frame BLAS rebuild" path: each
+    /// per-op input is a list of pre-built CLAS device addresses, and the
+    /// output is a BLAS whose contents are those clusters aggregated.
+    /// Pairs with [`ClusterAccelerationStructureOpInput::ClustersBottomLevel`].
+    BuildClustersBottomLevel,
+}
+
+/// How destination addresses are supplied to a cluster AS build.
+///
+/// Maps 1:1 to `VkClusterAccelerationStructureOpModeNV`. Only
+/// `ImplicitDestinations` is plumbed today; the explicit / size-query modes
+/// can be added when Aurora needs them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum ClusterAccelerationStructureOpMode {
+    /// Driver sub-allocates inside `dst_implicit_data` and writes each
+    /// per-op output's device address into `dst_addresses_array`.
+    ImplicitDestinations,
+}
+
+/// Per-op input shape for `BuildClustersBottomLevel`.
+///
+/// Mirrors `VkClusterAccelerationStructureClustersBottomLevelInputNV`. These
+/// are *upper-bound* counts used by `Device::get_cluster_build_sizes` to
+/// allocate scratch and storage; the actual per-build inputs are uploaded
+/// into the args buffer at indirect-build time.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ClusterAccelerationStructureClustersBottomLevelInput {
+    /// Maximum total number of clusters across all per-op outputs in the build.
+    pub max_total_cluster_count: u32,
+    /// Maximum number of clusters in any single per-op output.
+    pub max_cluster_count_per_acceleration_structure: u32,
+}
+
+/// Op-type-specific input data for a cluster AS build.
+///
+/// Variant must match the `op_type` selected in
+/// [`ClusterAccelerationStructureBuildSizesDescriptor`].
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum ClusterAccelerationStructureOpInput {
+    /// Input for [`ClusterAccelerationStructureOpType::BuildClustersBottomLevel`].
+    ClustersBottomLevel(ClusterAccelerationStructureClustersBottomLevelInput),
+}
+
+/// Descriptor passed to `Device::get_cluster_build_sizes` and shared by the
+/// command-time `build_cluster_acceleration_structures_indirect` call so the
+/// driver knows the upper-bound shape of the build.
+///
+/// Mirrors `VkClusterAccelerationStructureInputInfoNV`.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ClusterAccelerationStructureBuildSizesDescriptor {
+    /// Upper bound on the per-op outputs the build will produce.
+    pub max_acceleration_structure_count: u32,
+    /// Build performance / memory hints.
+    ///
+    /// `AccelerationStructureFlags::PREFER_FAST_TRACE` matches what Aurora
+    /// uses; `ALLOW_UPDATE` is meaningless for cluster builds and ignored.
+    pub flags: AccelerationStructureFlags,
+    /// Which kind of cluster build this is.
+    pub op_type: ClusterAccelerationStructureOpType,
+    /// How destination memory is supplied. See variant docs.
+    pub op_mode: ClusterAccelerationStructureOpMode,
+    /// Op-type-specific input upper bounds.
+    pub op_input: ClusterAccelerationStructureOpInput,
+}
+
+/// Sizes returned by `Device::get_cluster_build_sizes`.
+///
+/// Same shape as `VkAccelerationStructureBuildSizesInfoKHR` but exposed in
+/// wgpu's namespace so callers don't need to depend on ash directly. The
+/// values are upper bounds; the actual per-build sizes depend on the
+/// per-op inputs supplied at command time.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ClusterAccelerationStructureBuildSizes {
+    /// Bytes required to hold all per-op output cluster ASes in
+    /// `dst_implicit_data`. Pass at least this many bytes when allocating
+    /// the destination buffer.
+    pub acceleration_structure_size: u64,
+    /// Bytes required for the indirect-build scratch buffer.
+    pub build_scratch_size: u64,
+    /// Update scratch size — present for spec parity but zero for cluster
+    /// builds, which don't support in-place update.
+    pub update_scratch_size: u64,
+}

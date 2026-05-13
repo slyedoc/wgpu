@@ -972,6 +972,34 @@ impl super::Device {
     }
 }
 
+/// Translate the typed wgpu-types op-type enum into the raw Vulkan enum.
+///
+/// Lives here (not in `conv`) because the surrounding cluster_AS bindings
+/// are themselves Vulkan-only; sharing this code with non-Vulkan backends
+/// would require gating the whole helper module.
+#[cfg(feature = "experimental-cluster-acceleration-structure")]
+fn map_cluster_op_type(
+    op: wgt::ClusterAccelerationStructureOpType,
+) -> vk::ClusterAccelerationStructureOpTypeNV {
+    match op {
+        wgt::ClusterAccelerationStructureOpType::BuildClustersBottomLevel => {
+            vk::ClusterAccelerationStructureOpTypeNV::BUILD_CLUSTERS_BOTTOM_LEVEL
+        }
+    }
+}
+
+/// Translate the typed wgpu-types op-mode enum into the raw Vulkan enum.
+#[cfg(feature = "experimental-cluster-acceleration-structure")]
+fn map_cluster_op_mode(
+    mode: wgt::ClusterAccelerationStructureOpMode,
+) -> vk::ClusterAccelerationStructureOpModeNV {
+    match mode {
+        wgt::ClusterAccelerationStructureOpMode::ImplicitDestinations => {
+            vk::ClusterAccelerationStructureOpModeNV::IMPLICIT_DESTINATIONS
+        }
+    }
+}
+
 impl crate::Device for super::Device {
     type A = super::Api;
 
@@ -2567,6 +2595,61 @@ impl crate::Device for super::Device {
             update_scratch_size: raw.update_scratch_size,
             build_scratch_size: raw.build_scratch_size,
         }
+    }
+
+    #[cfg(feature = "experimental-cluster-acceleration-structure")]
+    #[allow(clippy::let_underscore_must_use)]
+    unsafe fn get_cluster_acceleration_structure_build_sizes(
+        &self,
+        desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::ClusterAccelerationStructureBuildSizes {
+        // Convert the wgpu-types descriptor into the vk:: chain.
+        // `op_input` is held by-pointer in vk::ClusterAccelerationStructureOpInputNV,
+        // so the inner struct must outlive the call. Pin it as a local here.
+        let bottom_level_input = match desc.op_input {
+            wgt::ClusterAccelerationStructureOpInput::ClustersBottomLevel(ref input) => {
+                vk::ClusterAccelerationStructureClustersBottomLevelInputNV::default()
+                    .max_total_cluster_count(input.max_total_cluster_count)
+                    .max_cluster_count_per_acceleration_structure(
+                        input.max_cluster_count_per_acceleration_structure,
+                    )
+            }
+        };
+        let op_input = match desc.op_type {
+            wgt::ClusterAccelerationStructureOpType::BuildClustersBottomLevel => {
+                vk::ClusterAccelerationStructureOpInputNV {
+                    p_clusters_bottom_level: ptr::from_ref(&bottom_level_input).cast_mut(),
+                }
+            }
+        };
+        let info = vk::ClusterAccelerationStructureInputInfoNV::default()
+            .max_acceleration_structure_count(desc.max_acceleration_structure_count)
+            .flags(conv::map_acceleration_structure_flags(desc.flags))
+            .op_type(map_cluster_op_type(desc.op_type))
+            .op_mode(map_cluster_op_mode(desc.op_mode))
+            .op_input(op_input);
+
+        // SAFETY: feature presence is guaranteed by EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE
+        // having been required at the wgpu-core safe API entry point.
+        let raw = unsafe { self.get_cluster_build_sizes(&info) };
+        wgt::ClusterAccelerationStructureBuildSizes {
+            acceleration_structure_size: raw.acceleration_structure_size,
+            build_scratch_size: raw.build_scratch_size,
+            update_scratch_size: raw.update_scratch_size,
+        }
+    }
+
+    #[cfg(not(feature = "experimental-cluster-acceleration-structure"))]
+    unsafe fn get_cluster_acceleration_structure_build_sizes(
+        &self,
+        _desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::ClusterAccelerationStructureBuildSizes {
+        unreachable!(
+            "get_cluster_acceleration_structure_build_sizes called without the \
+             experimental-cluster-acceleration-structure Cargo feature enabled; \
+             wgpu-core should have rejected the EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE \
+             feature request at device creation",
+        )
     }
 
     unsafe fn get_acceleration_structure_device_address(

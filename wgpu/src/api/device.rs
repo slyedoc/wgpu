@@ -723,6 +723,30 @@ impl Device {
         }
     }
 
+    /// Query the device-memory upper bounds for an indirect
+    /// `VK_NV_cluster_acceleration_structure` build of the shape described
+    /// by `desc`.
+    ///
+    /// Pure query: no resources are created, no commands recorded. The
+    /// returned values are the maximum bytes the cluster_AS indirect build
+    /// will require for the `dst_implicit_data` (output AS storage) and
+    /// scratch buffers.
+    ///
+    /// # Validation
+    /// - The device ***must*** have
+    ///   [`Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`] enabled.
+    ///
+    /// [`Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`]:
+    ///     wgt::Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE
+    #[must_use]
+    pub fn get_cluster_acceleration_structure_build_sizes(
+        &self,
+        desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::ClusterAccelerationStructureBuildSizes {
+        self.inner
+            .get_cluster_acceleration_structure_build_sizes(desc)
+    }
+
     /// Create a top level acceleration structure, used for ray tracing.
     /// - `desc`: The descriptor of the acceleration structure.
     ///

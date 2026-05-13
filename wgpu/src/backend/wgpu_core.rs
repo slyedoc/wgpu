@@ -1724,6 +1724,28 @@ impl dispatch::DeviceInterface for CoreDevice {
         )
     }
 
+    fn get_cluster_acceleration_structure_build_sizes(
+        &self,
+        desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::ClusterAccelerationStructureBuildSizes {
+        let global = &self.context.0;
+        match global.device_get_cluster_acceleration_structure_build_sizes(self.id, desc) {
+            Ok(sizes) => sizes,
+            Err(cause) => {
+                self.context.handle_error(
+                    &self.error_sink,
+                    cause,
+                    None,
+                    "Device::get_cluster_acceleration_structure_build_sizes",
+                );
+                // The error path is the GPU-not-available / feature-missing
+                // case. Returning zeros keeps callers from misusing
+                // garbage device addresses; the surface error already fired.
+                wgt::ClusterAccelerationStructureBuildSizes::default()
+            }
+        }
+    }
+
     fn create_tlas(&self, desc: &crate::CreateTlasDescriptor<'_>) -> dispatch::DispatchTlas {
         let global = &self.context.0;
         let (id, error) =
