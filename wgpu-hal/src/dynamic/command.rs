@@ -202,6 +202,12 @@ pub trait DynCommandEncoder: DynResource + core::fmt::Debug {
         &mut self,
         barrier: AccelerationStructureBarrier,
     );
+    /// See
+    /// [`CommandEncoder::build_cluster_acceleration_structures_indirect`].
+    unsafe fn build_cluster_acceleration_structures_indirect(
+        &mut self,
+        info: &wgt::ClusterAccelerationStructureBuildIndirectInfo<'_, &dyn DynBuffer>,
+    );
     unsafe fn copy_acceleration_structure_to_acceleration_structure(
         &mut self,
         src: &dyn DynAccelerationStructure,
@@ -687,6 +693,16 @@ impl<C: CommandEncoder + DynResource> DynCommandEncoder for C {
         barrier: AccelerationStructureBarrier,
     ) {
         unsafe { C::place_acceleration_structure_barrier(self, barrier) };
+    }
+
+    unsafe fn build_cluster_acceleration_structures_indirect(
+        &mut self,
+        info: &wgt::ClusterAccelerationStructureBuildIndirectInfo<'_, &dyn DynBuffer>,
+    ) {
+        // Downcast each &dyn DynBuffer to the backend's concrete Buffer.
+        // `map_buffers` preserves offsets / strides / sizes.
+        let info = info.clone().map_buffers(|b| b.expect_downcast_ref());
+        unsafe { C::build_cluster_acceleration_structures_indirect(self, &info) };
     }
 
     unsafe fn copy_acceleration_structure_to_acceleration_structure(

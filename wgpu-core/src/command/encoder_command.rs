@@ -177,6 +177,14 @@ pub enum Command<R: ReferenceType> {
         blas: Vec<crate::ray_tracing::OwnedBlasBuildEntry<R>>,
         tlas: Vec<crate::ray_tracing::OwnedTlasPackage<R>>,
     },
+    /// `VK_NV_cluster_acceleration_structure` indirect build. Inputs +
+    /// outputs are wgpu-tracked buffers; at finish time the encoder
+    /// registers each in the usage scope (so the surrounding tracker
+    /// emits the correct barriers) and dispatches to the hal-level
+    /// `build_cluster_acceleration_structures_indirect`.
+    BuildClusterAccelerationStructuresIndirect(
+        crate::ray_tracing::OwnedClusterAccelerationStructureBuild<R>,
+    ),
     TransitionResources {
         buffer_transitions: Vec<wgt::BufferTransition<R::Buffer>>,
         texture_transitions: Vec<wgt::TextureTransition<R::Texture>>,

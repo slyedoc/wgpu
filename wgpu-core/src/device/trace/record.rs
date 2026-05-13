@@ -270,6 +270,14 @@ impl IntoTrace for ArcCommand {
                     tlas: tlas.into_iter().map(|b| b.into_trace()).collect(),
                 }
             }
+            ArcCommand::BuildClusterAccelerationStructuresIndirect(_) => {
+                // Trace recording for cluster_AS indirect builds is not
+                // implemented. The Vulkan-only NV cluster_AS extension
+                // doesn't have an upstream wgpu trace shape and the work
+                // is purely a synchronous AS-build; trace replay would
+                // need bespoke handling outside the scope of this fork.
+                panic!("BuildClusterAccelerationStructuresIndirect cannot be traced");
+            }
             ArcCommand::TransitionResources {
                 buffer_transitions: _,
                 texture_transitions: _,

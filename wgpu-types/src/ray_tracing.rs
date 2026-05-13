@@ -289,6 +289,112 @@ pub struct ClusterAccelerationStructureBuildSizesDescriptor {
     pub op_input: ClusterAccelerationStructureOpInput,
 }
 
+/// A strided device-address region for a cluster_AS indirect-build input
+/// or output, generic over the buffer reference type so this struct can
+/// flow through wgpu API → wgpu-core → wgpu-hal without rebuilding.
+///
+/// Mirrors `VkStridedDeviceAddressRegionKHR`. The `buffer` reference
+/// identifies the wgpu/hal Buffer; `offset` is added to the buffer's base
+/// device address. `stride` is the per-element byte stride (e.g. 8 for an
+/// array of u64 device addresses, or `size_of::<BuildClustersBottomLevelInfoNV>()`
+/// for per-op input args). `size` is the total covered byte size.
+#[derive(Clone, Debug)]
+pub struct ClusterAccelerationStructureStridedBufferRegion<B> {
+    /// Buffer that backs the region.
+    pub buffer: B,
+    /// Byte offset into the buffer at which the region starts.
+    pub offset: u64,
+    /// Per-element byte stride.
+    pub stride: u64,
+    /// Total byte size of the region. Must be at least
+    /// `stride * (entry_count - 1) + element_size`.
+    pub size: u64,
+}
+
+/// Argument bundle for the safe cluster_AS indirect build.
+///
+/// Generic over the buffer reference type — `&wgpu::Buffer` in the public
+/// safe API, `&dyn hal::DynBuffer` once erased for dispatch, and the
+/// backend's concrete buffer type inside the hal Vulkan impl.
+///
+/// Mirrors `VkClusterAccelerationStructureCommandsInfoNV` but exposes
+/// typed buffer references that wgpu-core can register with the tracker
+/// before dispatch.
+#[derive(Clone, Debug)]
+pub struct ClusterAccelerationStructureBuildIndirectInfo<'a, B> {
+    /// Upper-bound build shape (must match the descriptor that was passed
+    /// to `get_cluster_build_sizes` to allocate `dst_implicit_data` /
+    /// scratch). Borrowed so we don't redundantly clone the inner enum
+    /// payload on every frame.
+    pub input: &'a ClusterAccelerationStructureBuildSizesDescriptor,
+    /// Output AS storage when `op_mode = ImplicitDestinations`. The driver
+    /// sub-allocates each per-op output inside this buffer.
+    pub dst_implicit_data: B,
+    /// Byte offset into `dst_implicit_data` for the storage base.
+    pub dst_implicit_data_offset: u64,
+    /// Indirect-build scratch buffer. Must satisfy
+    /// `ClusterAccelerationStructureBuildSizes::build_scratch_size`.
+    pub scratch_data: B,
+    /// Byte offset into `scratch_data`.
+    pub scratch_data_offset: u64,
+    /// Output addresses array: `op_count` entries of u64 BLAS device
+    /// addresses, written by the driver. None disables the write.
+    pub dst_addresses_array: Option<ClusterAccelerationStructureStridedBufferRegion<B>>,
+    /// Output sizes array: `op_count` entries of u32 byte sizes, written
+    /// by the driver. None disables the write.
+    pub dst_sizes_array: Option<ClusterAccelerationStructureStridedBufferRegion<B>>,
+    /// Per-op input arg structs (e.g. `VkClusterAccelerationStructureBuildClustersBottomLevelInfoNV`),
+    /// read by the driver at build time.
+    pub src_infos_array: ClusterAccelerationStructureStridedBufferRegion<B>,
+    /// Buffer holding a single u32 indirect op count, read by the driver
+    /// at build time.
+    pub src_infos_count: B,
+    /// Byte offset into `src_infos_count` (must be 4-byte aligned).
+    pub src_infos_count_offset: u64,
+}
+
+impl<'a, B> ClusterAccelerationStructureBuildIndirectInfo<'a, B> {
+    /// Re-map every buffer reference through `f`, preserving offsets /
+    /// strides / sizes. Used to lower from `&wgpu::Buffer` through
+    /// `&dyn hal::DynBuffer` to the backend-concrete buffer type.
+    pub fn map_buffers<B2>(
+        self,
+        mut f: impl FnMut(B) -> B2,
+    ) -> ClusterAccelerationStructureBuildIndirectInfo<'a, B2> {
+        ClusterAccelerationStructureBuildIndirectInfo {
+            input: self.input,
+            dst_implicit_data: f(self.dst_implicit_data),
+            dst_implicit_data_offset: self.dst_implicit_data_offset,
+            scratch_data: f(self.scratch_data),
+            scratch_data_offset: self.scratch_data_offset,
+            dst_addresses_array: self.dst_addresses_array.map(|r| {
+                ClusterAccelerationStructureStridedBufferRegion {
+                    buffer: f(r.buffer),
+                    offset: r.offset,
+                    stride: r.stride,
+                    size: r.size,
+                }
+            }),
+            dst_sizes_array: self.dst_sizes_array.map(|r| {
+                ClusterAccelerationStructureStridedBufferRegion {
+                    buffer: f(r.buffer),
+                    offset: r.offset,
+                    stride: r.stride,
+                    size: r.size,
+                }
+            }),
+            src_infos_array: ClusterAccelerationStructureStridedBufferRegion {
+                buffer: f(self.src_infos_array.buffer),
+                offset: self.src_infos_array.offset,
+                stride: self.src_infos_array.stride,
+                size: self.src_infos_array.size,
+            },
+            src_infos_count: f(self.src_infos_count),
+            src_infos_count_offset: self.src_infos_count_offset,
+        }
+    }
+}
+
 /// Sizes returned by `Device::get_cluster_build_sizes`.
 ///
 /// Same shape as `VkAccelerationStructureBuildSizesInfoKHR` but exposed in

@@ -978,7 +978,7 @@ impl super::Device {
 /// are themselves Vulkan-only; sharing this code with non-Vulkan backends
 /// would require gating the whole helper module.
 #[cfg(feature = "experimental-cluster-acceleration-structure")]
-fn map_cluster_op_type(
+pub(super) fn map_cluster_op_type(
     op: wgt::ClusterAccelerationStructureOpType,
 ) -> vk::ClusterAccelerationStructureOpTypeNV {
     match op {
@@ -990,7 +990,7 @@ fn map_cluster_op_type(
 
 /// Translate the typed wgpu-types op-mode enum into the raw Vulkan enum.
 #[cfg(feature = "experimental-cluster-acceleration-structure")]
-fn map_cluster_op_mode(
+pub(super) fn map_cluster_op_mode(
     mode: wgt::ClusterAccelerationStructureOpMode,
 ) -> vk::ClusterAccelerationStructureOpModeNV {
     match mode {

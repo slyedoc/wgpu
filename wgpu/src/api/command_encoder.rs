@@ -381,6 +381,33 @@ impl CommandEncoder {
             .build_acceleration_structures(&mut blas.into_iter(), &mut tlas.into_iter());
     }
 
+    /// Record a `VK_NV_cluster_acceleration_structure` indirect build.
+    ///
+    /// All input and output buffers are wgpu-tracked: the encoder
+    /// registers each with the right [`BufferUses`] state, so barriers
+    /// around the AS-build call and to the next consumer (a compute pass
+    /// reading the output BLAS device addresses, or a TLAS build reading
+    /// the implicit-data BLAS pool) are emitted automatically.
+    ///
+    /// This avoids the `as_hal_mut` escape hatch that the previous
+    /// fork-only entry point required, and the cross-CB tracker holes
+    /// that came with it.
+    ///
+    /// # Validation
+    /// The device must have
+    /// [`Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`] enabled.
+    ///
+    /// [`BufferUses`]: wgt::BufferUses
+    /// [`Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`]:
+    ///     wgt::Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE
+    pub fn build_cluster_acceleration_structures_indirect(
+        &mut self,
+        info: &ClusterAccelerationStructureBuildInfo<'_>,
+    ) {
+        self.inner
+            .build_cluster_acceleration_structures_indirect(info);
+    }
+
     /// Transition resources to an underlying hal resource state.
     ///
     /// This is an advanced, native-only API (no-op on web) that has two main use cases:
@@ -445,4 +472,53 @@ impl CommandEncoder {
             }),
         );
     }
+}
+
+
+/// Argument bundle for [`CommandEncoder::build_cluster_acceleration_structures_indirect`].
+///
+/// Holds `&Buffer` references for every cluster_AS build input / output.
+/// Optional outputs (sizes array, addresses array) can be omitted to
+/// disable that side of the build.
+///
+/// Mirrors `VkClusterAccelerationStructureCommandsInfoNV` but the buffer
+/// slots are wgpu-tracked so the encoder can emit barriers around the
+/// build call automatically.
+#[derive(Clone, Debug)]
+pub struct ClusterAccelerationStructureBuildInfo<'a> {
+    /// Upper-bound build shape. Must match the descriptor passed to
+    /// [`Device::get_cluster_acceleration_structure_build_sizes`] when
+    /// sizing the destination / scratch buffers.
+    pub input: &'a wgt::ClusterAccelerationStructureBuildSizesDescriptor,
+    /// AS-storage destination buffer for the per-output BLASes.
+    pub dst_implicit_data: &'a Buffer,
+    /// Byte offset into [`Self::dst_implicit_data`].
+    pub dst_implicit_data_offset: u64,
+    /// Build scratch.
+    pub scratch_data: &'a Buffer,
+    /// Byte offset into [`Self::scratch_data`].
+    pub scratch_data_offset: u64,
+    /// Optional output addresses array (one u64 device address per built
+    /// output). Pass `None` to disable the write.
+    pub dst_addresses_array: Option<ClusterAccelerationStructureBufferRegion<'a>>,
+    /// Optional output sizes array (one u32 per built output).
+    pub dst_sizes_array: Option<ClusterAccelerationStructureBufferRegion<'a>>,
+    /// Per-op input args region read indirectly by the build.
+    pub src_infos_array: ClusterAccelerationStructureBufferRegion<'a>,
+    /// Buffer holding a single u32 indirect op count.
+    pub src_infos_count: &'a Buffer,
+    /// Byte offset into [`Self::src_infos_count`] (must be 4-byte aligned).
+    pub src_infos_count_offset: u64,
+}
+
+/// Strided buffer region for a cluster_AS indirect build input/output.
+///
+/// `stride` is the byte stride between consecutive entries (e.g. 8 for an
+/// array of u64 device addresses). `size` is the total covered byte size.
+#[derive(Clone, Copy, Debug)]
+pub struct ClusterAccelerationStructureBufferRegion<'a> {
+    pub buffer: &'a Buffer,
+    pub offset: u64,
+    pub stride: u64,
+    pub size: u64,
 }

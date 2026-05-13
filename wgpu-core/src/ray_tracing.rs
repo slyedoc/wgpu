@@ -85,6 +85,93 @@ impl WebGpuError for GetClusterAsBuildSizesError {
     }
 }
 
+/// User-supplied descriptor for a cluster_AS indirect build, generic over
+/// the wgpu reference type (IDs at the public API, Arcs once resolved).
+///
+/// Mirrors [`wgt::ClusterAccelerationStructureBuildIndirectInfo`] but
+/// carries wgpu-tracked buffer references instead of raw hal handles.
+#[derive(Clone, Debug)]
+pub struct OwnedClusterAccelerationStructureBuild<R: crate::command::ReferenceType> {
+    /// Upper-bound input shape (must match the descriptor passed to
+    /// `get_cluster_acceleration_structure_build_sizes`).
+    pub input: wgt::ClusterAccelerationStructureBuildSizesDescriptor,
+    /// Implicit destinations storage buffer (op_mode = ImplicitDestinations).
+    pub dst_implicit_data: R::Buffer,
+    pub dst_implicit_data_offset: u64,
+    /// Build scratch buffer.
+    pub scratch_data: R::Buffer,
+    pub scratch_data_offset: u64,
+    /// Optional u64-per-output addresses array (driver-written).
+    pub dst_addresses_array:
+        Option<OwnedClusterStridedBufferRegion<R>>,
+    /// Optional u32-per-output sizes array (driver-written).
+    pub dst_sizes_array:
+        Option<OwnedClusterStridedBufferRegion<R>>,
+    /// Per-op input args region.
+    pub src_infos_array: OwnedClusterStridedBufferRegion<R>,
+    /// Single-u32 indirect count buffer.
+    pub src_infos_count: R::Buffer,
+    pub src_infos_count_offset: u64,
+}
+
+/// Strided buffer region carrying a wgpu-tracked buffer reference.
+#[derive(Clone, Debug)]
+pub struct OwnedClusterStridedBufferRegion<R: crate::command::ReferenceType> {
+    pub buffer: R::Buffer,
+    pub offset: u64,
+    pub stride: u64,
+    pub size: u64,
+}
+
+/// Public-API form: same shape, but with IDs at the boundary.
+#[derive(Clone, Debug)]
+pub struct ClusterAccelerationStructureBuildDescriptor<'a> {
+    pub input: &'a wgt::ClusterAccelerationStructureBuildSizesDescriptor,
+    pub dst_implicit_data: crate::id::BufferId,
+    pub dst_implicit_data_offset: u64,
+    pub scratch_data: crate::id::BufferId,
+    pub scratch_data_offset: u64,
+    pub dst_addresses_array: Option<ClusterStridedBufferRegion>,
+    pub dst_sizes_array: Option<ClusterStridedBufferRegion>,
+    pub src_infos_array: ClusterStridedBufferRegion,
+    pub src_infos_count: crate::id::BufferId,
+    pub src_infos_count_offset: u64,
+}
+
+/// Public-API strided region (IDs at the boundary).
+#[derive(Clone, Copy, Debug)]
+pub struct ClusterStridedBufferRegion {
+    pub buffer: crate::id::BufferId,
+    pub offset: u64,
+    pub stride: u64,
+    pub size: u64,
+}
+
+/// Errors returned from
+/// [`Global::command_encoder_build_cluster_acceleration_structures_indirect`].
+#[derive(Clone, Debug, Error)]
+pub enum BuildClusterAsError {
+    #[error(transparent)]
+    Device(#[from] DeviceError),
+    #[error(transparent)]
+    MissingFeatures(#[from] MissingFeatures),
+    #[error(transparent)]
+    InvalidResource(#[from] InvalidResourceError),
+    #[error(transparent)]
+    DestroyedResource(#[from] DestroyedResourceError),
+}
+
+impl WebGpuError for BuildClusterAsError {
+    fn webgpu_error_type(&self) -> ErrorType {
+        match self {
+            Self::Device(e) => e.webgpu_error_type(),
+            Self::MissingFeatures(e) => e.webgpu_error_type(),
+            Self::InvalidResource(e) => e.webgpu_error_type(),
+            Self::DestroyedResource(e) => e.webgpu_error_type(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Error)]
 pub enum CreateTlasError {
     #[error(transparent)]

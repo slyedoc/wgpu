@@ -1780,6 +1780,38 @@ pub trait CommandEncoder: WasmNotSendSync + fmt::Debug {
         &mut self,
         barrier: AccelerationStructureBarrier,
     );
+
+    /// Records a `VK_NV_cluster_acceleration_structure` indirect build.
+    ///
+    /// The driver reads the indirect op count and per-op input args from
+    /// device memory described by `info` (so a compute pass earlier in the
+    /// same submission can produce them), and writes per-output cluster_AS
+    /// device addresses / sizes into the optional output arrays.
+    ///
+    /// All inputs and outputs are wgpu-tracked buffers in the safe API;
+    /// wgpu-core inserts the appropriate barriers around this call via the
+    /// usage scope of the surrounding command pass before invoking this
+    /// method. Backends that don't expose
+    /// [`wgt::Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`]
+    /// inherit the panicking default impl.
+    ///
+    /// # Safety
+    ///
+    /// The device must have been created with the
+    /// `clusterAccelerationStructure` Vulkan feature enabled.
+    unsafe fn build_cluster_acceleration_structures_indirect(
+        &mut self,
+        _info: &wgt::ClusterAccelerationStructureBuildIndirectInfo<
+            '_,
+            &<Self::A as Api>::Buffer,
+        >,
+    ) {
+        unreachable!(
+            "build_cluster_acceleration_structures_indirect called on a backend that doesn't \
+             support EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE; wgpu-core should have \
+             gated this call on the feature flag",
+        )
+    }
     // modeled off dx12, because this is able to be polyfilled in vulkan as opposed to the other way round
     unsafe fn read_acceleration_structure_compact_size(
         &mut self,
