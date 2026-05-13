@@ -80,6 +80,10 @@ pub fn map_buffer_usage(usage: wgt::BufferUsages) -> wgt::BufferUses {
         wgt::BufferUses::ACCELERATION_STRUCTURE_STORAGE,
         usage.contains(wgt::BufferUsages::ACCELERATION_STRUCTURE_STORAGE),
     );
+    u.set(
+        wgt::BufferUses::ACCELERATION_STRUCTURE_SCRATCH,
+        usage.contains(wgt::BufferUsages::ACCELERATION_STRUCTURE_SCRATCH),
+    );
     u
 }
 
