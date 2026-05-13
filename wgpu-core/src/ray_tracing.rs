@@ -172,6 +172,80 @@ impl WebGpuError for BuildClusterAsError {
     }
 }
 
+/// Errors returned from
+/// [`Global::device_get_partitioned_acceleration_structure_build_sizes`].
+#[derive(Clone, Debug, Error)]
+pub enum GetPartitionedAsBuildSizesError {
+    #[error(transparent)]
+    Device(#[from] DeviceError),
+    #[error(transparent)]
+    MissingFeatures(#[from] MissingFeatures),
+}
+
+impl WebGpuError for GetPartitionedAsBuildSizesError {
+    fn webgpu_error_type(&self) -> ErrorType {
+        match self {
+            Self::Device(e) => e.webgpu_error_type(),
+            Self::MissingFeatures(e) => e.webgpu_error_type(),
+        }
+    }
+}
+
+/// User-supplied descriptor for a partitioned-AS build, generic over the
+/// wgpu reference type (IDs at the public API, Arcs once resolved).
+#[derive(Clone, Debug)]
+pub struct OwnedPartitionedAccelerationStructureBuild<R: crate::command::ReferenceType> {
+    pub input: wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
+    pub src_infos: R::Buffer,
+    pub src_infos_offset: u64,
+    pub src_infos_count: R::Buffer,
+    pub src_infos_count_offset: u64,
+    pub scratch_data: R::Buffer,
+    pub scratch_data_offset: u64,
+    pub src_acceleration_structure: Option<R::Tlas>,
+    pub dst_acceleration_structure: R::Tlas,
+}
+
+/// Public-API form of [`OwnedPartitionedAccelerationStructureBuild`] with
+/// IDs at the boundary.
+#[derive(Clone, Copy, Debug)]
+pub struct PartitionedAccelerationStructureBuildDescriptor<'a> {
+    pub input: &'a wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
+    pub src_infos: crate::id::BufferId,
+    pub src_infos_offset: u64,
+    pub src_infos_count: crate::id::BufferId,
+    pub src_infos_count_offset: u64,
+    pub scratch_data: crate::id::BufferId,
+    pub scratch_data_offset: u64,
+    pub src_acceleration_structure: Option<crate::id::TlasId>,
+    pub dst_acceleration_structure: crate::id::TlasId,
+}
+
+/// Errors returned from
+/// [`Global::command_encoder_build_partitioned_acceleration_structures`].
+#[derive(Clone, Debug, Error)]
+pub enum BuildPartitionedAsError {
+    #[error(transparent)]
+    Device(#[from] DeviceError),
+    #[error(transparent)]
+    MissingFeatures(#[from] MissingFeatures),
+    #[error(transparent)]
+    InvalidResource(#[from] InvalidResourceError),
+    #[error(transparent)]
+    DestroyedResource(#[from] DestroyedResourceError),
+}
+
+impl WebGpuError for BuildPartitionedAsError {
+    fn webgpu_error_type(&self) -> ErrorType {
+        match self {
+            Self::Device(e) => e.webgpu_error_type(),
+            Self::MissingFeatures(e) => e.webgpu_error_type(),
+            Self::InvalidResource(e) => e.webgpu_error_type(),
+            Self::DestroyedResource(e) => e.webgpu_error_type(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Error)]
 pub enum CreateTlasError {
     #[error(transparent)]

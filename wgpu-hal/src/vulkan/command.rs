@@ -917,6 +917,74 @@ impl crate::CommandEncoder for super::CommandEncoder {
         )
     }
 
+    #[cfg(feature = "experimental-partitioned-acceleration-structure")]
+    unsafe fn build_partitioned_acceleration_structures(
+        &mut self,
+        info: &wgt::PartitionedAccelerationStructureBuildIndirectInfo<'_, &super::Buffer>,
+        src_acceleration_structure: Option<&super::AccelerationStructure>,
+        dst_acceleration_structure: &super::AccelerationStructure,
+    ) {
+        let ray_tracing_functions = self
+            .device
+            .extension_fns
+            .ray_tracing
+            .as_ref()
+            .expect("Feature `EXPERIMENTAL_RAY_QUERY` not enabled");
+        let address_of = |buf: &super::Buffer, offset: u64| -> vk::DeviceAddress {
+            let addr = unsafe {
+                ray_tracing_functions.buffer_device_address.get_buffer_device_address(
+                    &vk::BufferDeviceAddressInfo::default().buffer(buf.raw_handle()),
+                )
+            };
+            addr + offset
+        };
+        let as_address = |as_handle: &super::AccelerationStructure| -> vk::DeviceAddress {
+            unsafe {
+                ray_tracing_functions
+                    .acceleration_structure
+                    .get_acceleration_structure_device_address(
+                        &vk::AccelerationStructureDeviceAddressInfoKHR::default()
+                            .acceleration_structure(as_handle.raw_handle()),
+                    )
+            }
+        };
+
+        let input_info = vk::PartitionedAccelerationStructureInstancesInputNV::default()
+            .flags(conv::map_acceleration_structure_flags(info.input.flags))
+            .instance_count(info.input.instance_count)
+            .max_instance_per_partition_count(info.input.max_instance_per_partition_count)
+            .partition_count(info.input.partition_count)
+            .max_instance_in_global_partition_count(
+                info.input.max_instance_in_global_partition_count,
+            );
+
+        let dst_addr = as_address(dst_acceleration_structure);
+        // 0 = "no source AS" per NV spec for first-build path.
+        let src_addr = src_acceleration_structure.map(as_address).unwrap_or(0);
+
+        let build_info = vk::BuildPartitionedAccelerationStructureInfoNV::default()
+            .input(input_info)
+            .src_acceleration_structure_data(src_addr)
+            .dst_acceleration_structure_data(dst_addr)
+            .scratch_data(address_of(info.scratch_data, info.scratch_data_offset))
+            .src_infos(address_of(info.src_infos, info.src_infos_offset))
+            .src_infos_count(address_of(info.src_infos_count, info.src_infos_count_offset));
+        unsafe { self.cmd_build_partitioned_acceleration_structures(&build_info) };
+    }
+
+    #[cfg(not(feature = "experimental-partitioned-acceleration-structure"))]
+    unsafe fn build_partitioned_acceleration_structures(
+        &mut self,
+        _info: &wgt::PartitionedAccelerationStructureBuildIndirectInfo<'_, &super::Buffer>,
+        _src_acceleration_structure: Option<&super::AccelerationStructure>,
+        _dst_acceleration_structure: &super::AccelerationStructure,
+    ) {
+        unreachable!(
+            "build_partitioned_acceleration_structures on Vulkan without the \
+             experimental-partitioned-acceleration-structure Cargo feature",
+        )
+    }
+
     unsafe fn place_acceleration_structure_barrier(
         &mut self,
         barrier: crate::AccelerationStructureBarrier,

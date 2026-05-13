@@ -408,6 +408,30 @@ impl CommandEncoder {
             .build_cluster_acceleration_structures_indirect(info);
     }
 
+    /// Record a `VK_NV_partitioned_acceleration_structure` build.
+    ///
+    /// `dst_acceleration_structure` is the destination Tlas. Pass
+    /// `src_acceleration_structure = Some(&tlas)` for an in-place update
+    /// (the prior build's output), or `None` for a full rebuild.
+    ///
+    /// Aurora's per-frame TLAS-fill compute pass typically writes
+    /// `src_infos` immediately upstream of this call; wgpu emits the
+    /// SHADER_WRITE → AS_BUILD_INPUT barrier automatically because the
+    /// encoder registers `src_infos` in its usage scope before dispatch.
+    ///
+    /// # Validation
+    /// The device ***must*** have
+    /// [`Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE`] enabled.
+    ///
+    /// [`Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE`]:
+    ///     wgt::Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE
+    pub fn build_partitioned_acceleration_structures(
+        &mut self,
+        info: &PartitionedAccelerationStructureBuildInfo<'_>,
+    ) {
+        self.inner.build_partitioned_acceleration_structures(info);
+    }
+
     /// Transition resources to an underlying hal resource state.
     ///
     /// This is an advanced, native-only API (no-op on web) that has two main use cases:
@@ -521,4 +545,31 @@ pub struct ClusterAccelerationStructureBufferRegion<'a> {
     pub offset: u64,
     pub stride: u64,
     pub size: u64,
+}
+
+/// Argument bundle for [`CommandEncoder::build_partitioned_acceleration_structures`].
+///
+/// Mirrors `VkBuildPartitionedAccelerationStructureInfoNV` but the AS
+/// destination is identified via a wgpu Tlas so the tracker knows about
+/// it.
+#[derive(Clone, Debug)]
+pub struct PartitionedAccelerationStructureBuildInfo<'a> {
+    /// Upper-bound build shape.
+    pub input: &'a wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
+    /// Per-instance WRITE_INSTANCE / UPDATE_INSTANCE op records.
+    pub src_infos: &'a Buffer,
+    /// Byte offset into [`Self::src_infos`].
+    pub src_infos_offset: u64,
+    /// Single-u32 indirect op-count buffer.
+    pub src_infos_count: &'a Buffer,
+    /// Byte offset into [`Self::src_infos_count`].
+    pub src_infos_count_offset: u64,
+    /// Build scratch.
+    pub scratch_data: &'a Buffer,
+    /// Byte offset into [`Self::scratch_data`].
+    pub scratch_data_offset: u64,
+    /// Optional prior AS for in-place update.
+    pub src_acceleration_structure: Option<&'a Tlas>,
+    /// Destination AS (build output target).
+    pub dst_acceleration_structure: &'a Tlas,
 }

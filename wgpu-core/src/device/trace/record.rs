@@ -278,6 +278,9 @@ impl IntoTrace for ArcCommand {
                 // need bespoke handling outside the scope of this fork.
                 panic!("BuildClusterAccelerationStructuresIndirect cannot be traced");
             }
+            ArcCommand::BuildPartitionedAccelerationStructures(_) => {
+                panic!("BuildPartitionedAccelerationStructures cannot be traced");
+            }
             ArcCommand::TransitionResources {
                 buffer_transitions: _,
                 texture_transitions: _,

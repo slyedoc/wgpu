@@ -14,7 +14,10 @@ use crate::{
     lock::RwLock,
     lock::{rank, Mutex},
     ray_tracing::BlasPrepareCompactError,
-    ray_tracing::{CreateBlasError, CreateTlasError, GetClusterAsBuildSizesError},
+    ray_tracing::{
+        CreateBlasError, CreateTlasError, GetClusterAsBuildSizesError,
+        GetPartitionedAsBuildSizesError,
+    },
     resource,
     resource::{
         BlasCompactCallback, BlasCompactState, Fallible, InvalidResourceError, TrackingData,
@@ -320,6 +323,22 @@ impl Device {
         Ok(sizes)
     }
 
+    /// Returns the device-memory upper bounds for a
+    /// `VK_NV_partitioned_acceleration_structure` build of the shape
+    /// described by `desc`.
+    pub fn get_partitioned_acceleration_structure_build_sizes(
+        self: &Arc<Self>,
+        desc: &wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
+    ) -> Result<wgt::PartitionedAccelerationStructureBuildSizes, GetPartitionedAsBuildSizesError>
+    {
+        self.check_is_valid()?;
+        self.require_features(Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE)?;
+        // SAFETY: feature gate above asserts backend support.
+        let sizes =
+            unsafe { self.raw().get_partitioned_acceleration_structure_build_sizes(desc) };
+        Ok(sizes)
+    }
+
     /// Wrap an externally-built `wgpu-hal` acceleration structure as a `Tlas`.
     ///
     /// This is the "I built the AS through `wgpu-hal` directly, now treat it as
@@ -386,6 +405,18 @@ impl Global {
         profiling::scope!("Device::get_cluster_acceleration_structure_build_sizes");
         let device = self.hub.devices.get(device_id);
         device.get_cluster_acceleration_structure_build_sizes(desc)
+    }
+
+    /// Forwards [`Device::get_partitioned_acceleration_structure_build_sizes`].
+    pub fn device_get_partitioned_acceleration_structure_build_sizes(
+        &self,
+        device_id: id::DeviceId,
+        desc: &wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
+    ) -> Result<wgt::PartitionedAccelerationStructureBuildSizes, GetPartitionedAsBuildSizesError>
+    {
+        profiling::scope!("Device::get_partitioned_acceleration_structure_build_sizes");
+        let device = self.hub.devices.get(device_id);
+        device.get_partitioned_acceleration_structure_build_sizes(desc)
     }
 
     pub fn device_create_blas(

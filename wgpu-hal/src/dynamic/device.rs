@@ -156,6 +156,11 @@ pub trait DynDevice: DynResource {
         &self,
         desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
     ) -> wgt::ClusterAccelerationStructureBuildSizes;
+    /// See [`Device::get_partitioned_acceleration_structure_build_sizes`].
+    unsafe fn get_partitioned_acceleration_structure_build_sizes(
+        &self,
+        desc: &wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::PartitionedAccelerationStructureBuildSizes;
     unsafe fn get_acceleration_structure_device_address(
         &self,
         acceleration_structure: &dyn DynAccelerationStructure,
@@ -535,6 +540,13 @@ impl<D: Device + DynResource> DynDevice for D {
         desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
     ) -> wgt::ClusterAccelerationStructureBuildSizes {
         unsafe { D::get_cluster_acceleration_structure_build_sizes(self, desc) }
+    }
+
+    unsafe fn get_partitioned_acceleration_structure_build_sizes(
+        &self,
+        desc: &wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::PartitionedAccelerationStructureBuildSizes {
+        unsafe { D::get_partitioned_acceleration_structure_build_sizes(self, desc) }
     }
 
     unsafe fn get_acceleration_structure_device_address(

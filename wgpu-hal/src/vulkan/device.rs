@@ -2652,6 +2652,37 @@ impl crate::Device for super::Device {
         )
     }
 
+    #[cfg(feature = "experimental-partitioned-acceleration-structure")]
+    unsafe fn get_partitioned_acceleration_structure_build_sizes(
+        &self,
+        desc: &wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::PartitionedAccelerationStructureBuildSizes {
+        let info = vk::PartitionedAccelerationStructureInstancesInputNV::default()
+            .flags(conv::map_acceleration_structure_flags(desc.flags))
+            .instance_count(desc.instance_count)
+            .max_instance_per_partition_count(desc.max_instance_per_partition_count)
+            .partition_count(desc.partition_count)
+            .max_instance_in_global_partition_count(desc.max_instance_in_global_partition_count);
+        // SAFETY: feature presence checked at wgpu-core entry point.
+        let raw = unsafe { self.get_partitioned_build_sizes(&info) };
+        wgt::PartitionedAccelerationStructureBuildSizes {
+            acceleration_structure_size: raw.acceleration_structure_size,
+            build_scratch_size: raw.build_scratch_size,
+            update_scratch_size: raw.update_scratch_size,
+        }
+    }
+
+    #[cfg(not(feature = "experimental-partitioned-acceleration-structure"))]
+    unsafe fn get_partitioned_acceleration_structure_build_sizes(
+        &self,
+        _desc: &wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::PartitionedAccelerationStructureBuildSizes {
+        unreachable!(
+            "get_partitioned_acceleration_structure_build_sizes called without the \
+             experimental-partitioned-acceleration-structure Cargo feature enabled",
+        )
+    }
+
     unsafe fn get_acceleration_structure_device_address(
         &self,
         acceleration_structure: &super::AccelerationStructure,

@@ -747,6 +747,25 @@ impl Device {
             .get_cluster_acceleration_structure_build_sizes(desc)
     }
 
+    /// Query the device-memory upper bounds for a
+    /// `VK_NV_partitioned_acceleration_structure` build of the shape
+    /// described by `desc`.
+    ///
+    /// # Validation
+    /// - The device ***must*** have
+    ///   [`Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE`] enabled.
+    ///
+    /// [`Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE`]:
+    ///     wgt::Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE
+    #[must_use]
+    pub fn get_partitioned_acceleration_structure_build_sizes(
+        &self,
+        desc: &wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::PartitionedAccelerationStructureBuildSizes {
+        self.inner
+            .get_partitioned_acceleration_structure_build_sizes(desc)
+    }
+
     /// Create a top level acceleration structure, used for ray tracing.
     /// - `desc`: The descriptor of the acceleration structure.
     ///

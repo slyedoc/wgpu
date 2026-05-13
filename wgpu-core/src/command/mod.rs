@@ -1195,6 +1195,11 @@ impl CommandEncoder {
                             &mut state, build,
                         )?;
                     }
+                    ArcCommand::BuildPartitionedAccelerationStructures(build) => {
+                        ray_tracing::build_partitioned_acceleration_structures(
+                            &mut state, build,
+                        )?;
+                    }
                     ArcCommand::TransitionResources {
                         buffer_transitions,
                         texture_transitions,
@@ -1572,6 +1577,10 @@ pub enum CommandEncoderError {
     #[error(transparent)]
     BuildClusterAccelerationStructure(#[from] crate::ray_tracing::BuildClusterAsError),
     #[error(transparent)]
+    BuildPartitionedAccelerationStructure(
+        #[from] crate::ray_tracing::BuildPartitionedAsError,
+    ),
+    #[error(transparent)]
     TransitionResources(#[from] TransitionResourcesError),
     #[error(transparent)]
     ComputePass(#[from] ComputePassError),
@@ -1624,6 +1633,7 @@ impl WebGpuError for CommandEncoderError {
             Self::Query(e) => e.webgpu_error_type(),
             Self::BuildAccelerationStructure(e) => e.webgpu_error_type(),
             Self::BuildClusterAccelerationStructure(e) => e.webgpu_error_type(),
+            Self::BuildPartitionedAccelerationStructure(e) => e.webgpu_error_type(),
             Self::TransitionResources(e) => e.webgpu_error_type(),
             Self::ResourceUsage(e) => e.webgpu_error_type(),
             Self::ComputePass(e) => e.webgpu_error_type(),

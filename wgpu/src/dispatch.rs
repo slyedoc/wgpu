@@ -200,6 +200,11 @@ pub trait DeviceInterface: CommonTraits {
         &self,
         desc: &wgt::ClusterAccelerationStructureBuildSizesDescriptor,
     ) -> wgt::ClusterAccelerationStructureBuildSizes;
+    /// Pure query for `VK_NV_partitioned_acceleration_structure` build sizes.
+    fn get_partitioned_acceleration_structure_build_sizes(
+        &self,
+        desc: &wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::PartitionedAccelerationStructureBuildSizes;
     fn create_sampler(&self, desc: &crate::SamplerDescriptor<'_>) -> DispatchSampler;
     fn create_query_set(&self, desc: &crate::QuerySetDescriptor<'_>) -> DispatchQuerySet;
     fn create_command_encoder(
@@ -392,6 +397,12 @@ pub trait CommandEncoderInterface: CommonTraits {
     fn build_cluster_acceleration_structures_indirect(
         &self,
         info: &crate::ClusterAccelerationStructureBuildInfo<'_>,
+    );
+
+    /// `VK_NV_partitioned_acceleration_structure` build.
+    fn build_partitioned_acceleration_structures(
+        &self,
+        info: &crate::PartitionedAccelerationStructureBuildInfo<'_>,
     );
 
     fn transition_resources<'a>(

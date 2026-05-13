@@ -479,6 +479,46 @@ pub(crate) fn build_acceleration_structures(
 
 impl Global {
     /// Safe wgpu-core entry point for
+    /// `vkCmdBuildPartitionedAccelerationStructuresNV`.
+    pub fn command_encoder_build_partitioned_acceleration_structures(
+        &self,
+        command_encoder_id: CommandEncoderId,
+        desc: crate::ray_tracing::PartitionedAccelerationStructureBuildDescriptor<'_>,
+    ) -> Result<(), EncoderStateError> {
+        profiling::scope!("CommandEncoder::build_partitioned_acceleration_structures");
+        let hub = &self.hub;
+        let cmd_enc = hub.command_encoders.get(command_encoder_id);
+        let mut cmd_buf_data = cmd_enc.data.lock();
+        cmd_buf_data.push_with(
+            || -> Result<_, crate::ray_tracing::BuildPartitionedAsError> {
+                let resolve_buffer = |id: crate::id::BufferId| -> Result<_, _> {
+                    self.resolve_buffer_id(id)
+                        .map_err(crate::ray_tracing::BuildPartitionedAsError::InvalidResource)
+                };
+                let resolve_tlas = |id: crate::id::TlasId| -> Result<_, _> {
+                    self.resolve_tlas_id(id)
+                        .map_err(crate::ray_tracing::BuildPartitionedAsError::InvalidResource)
+                };
+                let owned = crate::ray_tracing::OwnedPartitionedAccelerationStructureBuild {
+                    input: *desc.input,
+                    src_infos: resolve_buffer(desc.src_infos)?,
+                    src_infos_offset: desc.src_infos_offset,
+                    src_infos_count: resolve_buffer(desc.src_infos_count)?,
+                    src_infos_count_offset: desc.src_infos_count_offset,
+                    scratch_data: resolve_buffer(desc.scratch_data)?,
+                    scratch_data_offset: desc.scratch_data_offset,
+                    src_acceleration_structure: desc
+                        .src_acceleration_structure
+                        .map(resolve_tlas)
+                        .transpose()?,
+                    dst_acceleration_structure: resolve_tlas(desc.dst_acceleration_structure)?,
+                };
+                Ok(ArcCommand::BuildPartitionedAccelerationStructures(owned))
+            },
+        )
+    }
+
+    /// Safe wgpu-core entry point for
     /// `vkCmdBuildClusterAccelerationStructureIndirectNV`.
     ///
     /// Resolves the user's buffer IDs to wgpu-core `Arc<Buffer>` and queues
@@ -648,6 +688,71 @@ pub(crate) fn build_cluster_acceleration_structures_indirect(
         });
     }
 
+    Ok(())
+}
+
+/// Execute a queued partitioned_AS build at command-buffer finish time.
+pub(crate) fn build_partitioned_acceleration_structures(
+    state: &mut EncodingState,
+    build: crate::ray_tracing::OwnedPartitionedAccelerationStructureBuild<ArcReferences>,
+) -> Result<(), crate::ray_tracing::BuildPartitionedAsError> {
+    state
+        .device
+        .require_features(Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE)?;
+
+    let mut input_barriers = Vec::<hal::BufferBarrier<dyn hal::DynBuffer>>::new();
+    macro_rules! mark {
+        ($buf:expr, $uses:expr) => {{
+            let buf = &$buf;
+            if let Some(pending) = state.tracker.buffers.set_single(buf, $uses) {
+                input_barriers.push(pending.into_hal(buf.as_ref(), state.snatch_guard));
+            }
+        }};
+    }
+    mark!(build.src_infos, BufferUses::TOP_LEVEL_ACCELERATION_STRUCTURE_INPUT);
+    mark!(build.src_infos_count, BufferUses::TOP_LEVEL_ACCELERATION_STRUCTURE_INPUT);
+    mark!(build.scratch_data, BufferUses::ACCELERATION_STRUCTURE_SCRATCH);
+
+    // Register the destination TLAS so wgpu tracks its post-build state
+    // for downstream ray-trace consumers.
+    state
+        .tracker
+        .tlas_s
+        .insert_single(build.dst_acceleration_structure.clone());
+
+    let raw_encoder = &mut state.raw_encoder;
+    let snatch_guard = state.snatch_guard;
+
+    let src_infos = build.src_infos.try_raw(snatch_guard)?;
+    let src_infos_count = build.src_infos_count.try_raw(snatch_guard)?;
+    let scratch = build.scratch_data.try_raw(snatch_guard)?;
+    let dst_as = build.dst_acceleration_structure.try_raw(snatch_guard)?;
+    let src_as = build
+        .src_acceleration_structure
+        .as_ref()
+        .map(|t| t.try_raw(snatch_guard))
+        .transpose()?;
+
+    unsafe {
+        raw_encoder.transition_buffers(&input_barriers);
+        let info = wgt::PartitionedAccelerationStructureBuildIndirectInfo {
+            input: &build.input,
+            src_infos,
+            src_infos_offset: build.src_infos_offset,
+            src_infos_count,
+            src_infos_count_offset: build.src_infos_count_offset,
+            scratch_data: scratch,
+            scratch_data_offset: build.scratch_data_offset,
+        };
+        raw_encoder.build_partitioned_acceleration_structures(&info, src_as, dst_as);
+
+        raw_encoder.place_acceleration_structure_barrier(hal::AccelerationStructureBarrier {
+            usage: hal::StateTransition {
+                from: hal::AccelerationStructureUses::BUILD_OUTPUT,
+                to: hal::AccelerationStructureUses::SHADER_INPUT,
+            },
+        });
+    }
     Ok(())
 }
 
