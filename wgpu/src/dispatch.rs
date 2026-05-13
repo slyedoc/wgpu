@@ -193,6 +193,14 @@ pub trait DeviceInterface: CommonTraits {
         sizes: crate::BlasGeometrySizeDescriptors,
     ) -> (Option<u64>, DispatchBlas);
     fn create_tlas(&self, desc: &crate::CreateTlasDescriptor<'_>) -> DispatchTlas;
+    /// Allocate a partitioned-AS TLAS via the
+    /// `VK_NV_partitioned_acceleration_structure` extension. Backend
+    /// should error if `EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE`
+    /// isn't enabled.
+    fn create_partitioned_tlas(
+        &self,
+        desc: &crate::CreatePartitionedTlasDescriptor<'_>,
+    ) -> DispatchTlas;
     /// Pure query for `VK_NV_cluster_acceleration_structure` build sizes.
     /// Backend should error if `EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE`
     /// isn't enabled.

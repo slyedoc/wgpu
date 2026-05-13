@@ -2426,6 +2426,13 @@ impl dispatch::DeviceInterface for WebDevice {
         unimplemented!("Raytracing not implemented for web");
     }
 
+    fn create_partitioned_tlas(
+        &self,
+        _desc: &crate::CreatePartitionedTlasDescriptor<'_>,
+    ) -> dispatch::DispatchTlas {
+        unimplemented!("Raytracing not implemented for web");
+    }
+
     fn create_sampler(&self, desc: &crate::SamplerDescriptor<'_>) -> dispatch::DispatchSampler {
         let mapped_desc = webgpu_sys::GpuSamplerDescriptor::new();
         mapped_desc.set_address_mode_u(map_address_mode(desc.address_mode_u));

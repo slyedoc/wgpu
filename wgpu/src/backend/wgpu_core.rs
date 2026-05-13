@@ -1781,6 +1781,31 @@ impl dispatch::DeviceInterface for CoreDevice {
         .into()
     }
 
+    fn create_partitioned_tlas(
+        &self,
+        desc: &crate::CreatePartitionedTlasDescriptor<'_>,
+    ) -> dispatch::DispatchTlas {
+        let global = &self.context.0;
+        let (id, error) = global.device_create_partitioned_tlas(
+            self.id,
+            &desc.map_label(|l| l.map(Borrowed)),
+            None,
+        );
+        if let Some(cause) = error {
+            self.context.handle_error(
+                &self.error_sink,
+                cause,
+                desc.label,
+                "Device::create_partitioned_tlas",
+            );
+        }
+        CoreTlas {
+            context: self.context.clone(),
+            id,
+        }
+        .into()
+    }
+
     fn create_sampler(&self, desc: &crate::SamplerDescriptor<'_>) -> dispatch::DispatchSampler {
         let descriptor = wgc::resource::SamplerDescriptor {
             label: desc.label.map(Borrowed),

@@ -4,7 +4,7 @@ use core::ops::Deref;
 use core::{error, fmt, future::Future, marker::PhantomData};
 
 use crate::api::blas::{Blas, BlasGeometrySizeDescriptors, CreateBlasDescriptor};
-use crate::api::tlas::{CreateTlasDescriptor, Tlas};
+use crate::api::tlas::{CreatePartitionedTlasDescriptor, CreateTlasDescriptor, Tlas};
 use crate::util::Mutex;
 use crate::*;
 
@@ -778,6 +778,33 @@ impl Device {
     #[must_use]
     pub fn create_tlas(&self, desc: &CreateTlasDescriptor<'_>) -> Tlas {
         let tlas = self.inner.create_tlas(desc);
+
+        Tlas {
+            inner: tlas,
+            instances: vec![None; desc.max_instances as usize],
+            lowest_unmodified: 0,
+        }
+    }
+
+    /// Allocate a partitioned-AS TLAS via the
+    /// `VK_NV_partitioned_acceleration_structure` extension.
+    ///
+    /// The returned `Tlas` owns its acceleration-structure storage; the
+    /// underlying memory is zero-initialised so the first
+    /// `CommandEncoder::build_partitioned_acceleration_structures` call
+    /// runs a full build. The TLAS is marked as already-built (the
+    /// partitioned-build path doesn't drive wgpu's `built_index`), which
+    /// lets ray-trace consumers bind it immediately after the build.
+    ///
+    /// # Validation
+    /// The device ***must*** have
+    /// [`Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE`] enabled.
+    ///
+    /// [`Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE`]:
+    ///     wgt::Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE
+    #[must_use]
+    pub fn create_partitioned_tlas(&self, desc: &CreatePartitionedTlasDescriptor<'_>) -> Tlas {
+        let tlas = self.inner.create_partitioned_tlas(desc);
 
         Tlas {
             inner: tlas,

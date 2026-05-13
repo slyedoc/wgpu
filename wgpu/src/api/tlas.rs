@@ -10,6 +10,13 @@ use wgt::WasmNotSendSync;
 pub type CreateTlasDescriptor<'a> = wgt::CreateTlasDescriptor<Label<'a>>;
 static_assertions::assert_impl_all!(CreateTlasDescriptor<'_>: Send, Sync);
 
+/// Descriptor for [`Device::create_partitioned_tlas`].
+///
+/// [`Device::create_partitioned_tlas`]: crate::Device::create_partitioned_tlas
+pub type CreatePartitionedTlasDescriptor<'a> =
+    wgt::CreatePartitionedTlasDescriptor<Label<'a>>;
+static_assertions::assert_impl_all!(CreatePartitionedTlasDescriptor<'_>: Send, Sync);
+
 #[derive(Debug, Clone)]
 /// Top Level Acceleration Structure (TLAS).
 ///

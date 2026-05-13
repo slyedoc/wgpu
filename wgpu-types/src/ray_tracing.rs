@@ -122,6 +122,45 @@ impl<L> CreateTlasDescriptor<L> {
     }
 }
 
+/// Descriptor for `Device::create_partitioned_tlas`.
+///
+/// Sized via `build_sizes_input` and allocated through wgpu-hal so the
+/// resulting `wgpu::Tlas` owns its acceleration-structure storage. The
+/// initial AS storage is zero-initialised; the partitioned-AS build path
+/// treats that as an empty AS on the first
+/// `build_partitioned_acceleration_structures` call.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct CreatePartitionedTlasDescriptor<L> {
+    /// Label for the partitioned TLAS.
+    pub label: L,
+    /// Maximum number of instances the TLAS will hold.
+    pub max_instances: u32,
+    /// Build performance / memory hints. Surface-matched with the
+    /// later partitioned-AS build descriptor.
+    pub flags: AccelerationStructureFlags,
+    /// Update mode for the TLAS.
+    pub update_mode: AccelerationStructureUpdateMode,
+    /// Upper-bound build shape used to compute the AS storage size at
+    /// creation. Must describe the same shape (or an upper bound thereof)
+    /// passed to the per-build
+    /// [`PartitionedAccelerationStructureBuildIndirectInfo::input`].
+    pub build_sizes_input: PartitionedAccelerationStructureBuildSizesDescriptor,
+}
+
+impl<L> CreatePartitionedTlasDescriptor<L> {
+    /// Takes a closure and maps the label of the descriptor into another.
+    pub fn map_label<K>(&self, fun: impl FnOnce(&L) -> K) -> CreatePartitionedTlasDescriptor<K> {
+        CreatePartitionedTlasDescriptor {
+            label: fun(&self.label),
+            max_instances: self.max_instances,
+            flags: self.flags,
+            update_mode: self.update_mode,
+            build_sizes_input: self.build_sizes_input,
+        }
+    }
+}
+
 bitflags::bitflags!(
     /// Flags for acceleration structures
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
