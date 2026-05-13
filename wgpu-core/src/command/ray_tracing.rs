@@ -687,10 +687,18 @@ pub(crate) fn build_cluster_acceleration_structures_indirect(
         // covered by wgpu's per-bind transition at the next use site --
         // this barrier just promotes BUILD_OUTPUT -> SHADER_INPUT on the
         // AS storage so that promotion is observable.
+        // Drain AS_WRITE writes to BOTH shader reads (trace path) AND
+        // AS_BUILD reads (e.g. cluster_AS BUILD_CLUSTERS_BOTTOM_LEVEL
+        // reading CLAS data via cluster_references device addresses) in
+        // a single barrier. The buffer-level tracker handles per-buffer
+        // dst transitions on the next bind; this barrier covers the
+        // resource-pool reads that flow transitively via device address
+        // (which wgpu's tracker can't follow).
         raw_encoder.place_acceleration_structure_barrier(hal::AccelerationStructureBarrier {
             usage: hal::StateTransition {
                 from: hal::AccelerationStructureUses::BUILD_OUTPUT,
-                to: hal::AccelerationStructureUses::SHADER_INPUT,
+                to: hal::AccelerationStructureUses::SHADER_INPUT
+                    | hal::AccelerationStructureUses::BUILD_INPUT,
             },
         });
     }
@@ -753,10 +761,18 @@ pub(crate) fn build_partitioned_acceleration_structures(
         };
         raw_encoder.build_partitioned_acceleration_structures(&info, src_as, dst_as);
 
+        // Drain AS_WRITE writes to BOTH shader reads (trace path) AND
+        // AS_BUILD reads (e.g. cluster_AS BUILD_CLUSTERS_BOTTOM_LEVEL
+        // reading CLAS data via cluster_references device addresses) in
+        // a single barrier. The buffer-level tracker handles per-buffer
+        // dst transitions on the next bind; this barrier covers the
+        // resource-pool reads that flow transitively via device address
+        // (which wgpu's tracker can't follow).
         raw_encoder.place_acceleration_structure_barrier(hal::AccelerationStructureBarrier {
             usage: hal::StateTransition {
                 from: hal::AccelerationStructureUses::BUILD_OUTPUT,
-                to: hal::AccelerationStructureUses::SHADER_INPUT,
+                to: hal::AccelerationStructureUses::SHADER_INPUT
+                    | hal::AccelerationStructureUses::BUILD_INPUT,
             },
         });
     }
