@@ -2944,6 +2944,43 @@ impl dispatch::CommandEncoderInterface for CoreCommandEncoder {
         }
     }
 
+    fn build_cluster_acceleration_structures_indirect(
+        &self,
+        info: &crate::ClusterAccelerationStructureBuildInfo<'_>,
+    ) {
+        let map_region = |r: &crate::ClusterAccelerationStructureBufferRegion<'_>| {
+            wgc::ray_tracing::ClusterStridedBufferRegion {
+                buffer: r.buffer.inner.as_core().id,
+                offset: r.offset,
+                stride: r.stride,
+                size: r.size,
+            }
+        };
+        let desc = wgc::ray_tracing::ClusterAccelerationStructureBuildDescriptor {
+            input: info.input,
+            dst_implicit_data: info.dst_implicit_data.inner.as_core().id,
+            dst_implicit_data_offset: info.dst_implicit_data_offset,
+            scratch_data: info.scratch_data.inner.as_core().id,
+            scratch_data_offset: info.scratch_data_offset,
+            dst_addresses_array: info.dst_addresses_array.as_ref().map(map_region),
+            dst_sizes_array: info.dst_sizes_array.as_ref().map(map_region),
+            src_infos_array: map_region(&info.src_infos_array),
+            src_infos_count: info.src_infos_count.inner.as_core().id,
+            src_infos_count_offset: info.src_infos_count_offset,
+        };
+        if let Err(cause) = self
+            .context
+            .0
+            .command_encoder_build_cluster_acceleration_structures_indirect(self.id, desc)
+        {
+            self.context.handle_error_nolabel(
+                &self.error_sink,
+                cause,
+                "CommandEncoder::build_cluster_acceleration_structures_indirect",
+            );
+        }
+    }
+
     fn transition_resources<'a>(
         &mut self,
         buffer_transitions: &mut dyn Iterator<

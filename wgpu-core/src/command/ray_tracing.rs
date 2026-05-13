@@ -477,6 +477,180 @@ pub(crate) fn build_acceleration_structures(
     Ok(())
 }
 
+impl Global {
+    /// Safe wgpu-core entry point for
+    /// `vkCmdBuildClusterAccelerationStructureIndirectNV`.
+    ///
+    /// Resolves the user's buffer IDs to wgpu-core `Arc<Buffer>` and queues
+    /// an `ArcCommand::BuildClusterAccelerationStructuresIndirect` on the
+    /// encoder. At finish time the encoder runs the usage scope (so the
+    /// tracker emits input/output barriers) and dispatches through the
+    /// hal trait.
+    pub fn command_encoder_build_cluster_acceleration_structures_indirect(
+        &self,
+        command_encoder_id: CommandEncoderId,
+        desc: crate::ray_tracing::ClusterAccelerationStructureBuildDescriptor<'_>,
+    ) -> Result<(), EncoderStateError> {
+        profiling::scope!("CommandEncoder::build_cluster_acceleration_structures_indirect");
+        let hub = &self.hub;
+        let cmd_enc = hub.command_encoders.get(command_encoder_id);
+        let mut cmd_buf_data = cmd_enc.data.lock();
+        cmd_buf_data.push_with(
+            || -> Result<_, crate::ray_tracing::BuildClusterAsError> {
+                let resolve = |id: crate::id::BufferId| -> Result<_, _> {
+                    self.resolve_buffer_id(id)
+                        .map_err(crate::ray_tracing::BuildClusterAsError::InvalidResource)
+                };
+                let resolve_region = |r: crate::ray_tracing::ClusterStridedBufferRegion| {
+                    resolve(r.buffer).map(|buf| {
+                        crate::ray_tracing::OwnedClusterStridedBufferRegion {
+                            buffer: buf,
+                            offset: r.offset,
+                            stride: r.stride,
+                            size: r.size,
+                        }
+                    })
+                };
+                let owned = crate::ray_tracing::OwnedClusterAccelerationStructureBuild {
+                    input: desc.input.clone(),
+                    dst_implicit_data: resolve(desc.dst_implicit_data)?,
+                    dst_implicit_data_offset: desc.dst_implicit_data_offset,
+                    scratch_data: resolve(desc.scratch_data)?,
+                    scratch_data_offset: desc.scratch_data_offset,
+                    dst_addresses_array: desc
+                        .dst_addresses_array
+                        .map(resolve_region)
+                        .transpose()?,
+                    dst_sizes_array: desc.dst_sizes_array.map(resolve_region).transpose()?,
+                    src_infos_array: resolve_region(desc.src_infos_array)?,
+                    src_infos_count: resolve(desc.src_infos_count)?,
+                    src_infos_count_offset: desc.src_infos_count_offset,
+                };
+                Ok(ArcCommand::BuildClusterAccelerationStructuresIndirect(owned))
+            },
+        )
+    }
+}
+
+/// Execute a queued cluster_AS indirect build at command-buffer finish time.
+///
+/// Runs the usage scope (so wgpu's tracker emits the input/output barriers
+/// the surrounding compute and ray-tracing passes need), then lowers the
+/// owned struct through the hal-dyn-buffer layer and dispatches to the
+/// hal trait method.
+pub(crate) fn build_cluster_acceleration_structures_indirect(
+    state: &mut EncodingState,
+    build: crate::ray_tracing::OwnedClusterAccelerationStructureBuild<ArcReferences>,
+) -> Result<(), crate::ray_tracing::BuildClusterAsError> {
+    state
+        .device
+        .require_features(Features::EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE)?;
+
+    let mut input_barriers = Vec::<hal::BufferBarrier<dyn hal::DynBuffer>>::new();
+
+    // Helper: register a buffer in the tracker with the given BufferUses
+    // and collect any pending transition into `input_barriers`.
+    macro_rules! mark {
+        ($buf:expr, $uses:expr) => {{
+            let buf = &$buf;
+            if let Some(pending) = state.tracker.buffers.set_single(buf, $uses) {
+                input_barriers.push(pending.into_hal(buf.as_ref(), state.snatch_guard));
+            }
+        }};
+    }
+    // Inputs read by the AS-build pipeline: the per-op args, the count,
+    // and (via cluster_references device addresses inside the args) the
+    // CLAS list pointed to by the args. The args + count buffer get
+    // BLAS_INPUT (= BOTTOM_LEVEL_ACCELERATION_STRUCTURE_INPUT). The
+    // implicit-data destination is the AS-storage write target; scratch
+    // is the build scratch.
+    mark!(build.src_infos_array.buffer, BufferUses::BOTTOM_LEVEL_ACCELERATION_STRUCTURE_INPUT);
+    mark!(build.src_infos_count, BufferUses::BOTTOM_LEVEL_ACCELERATION_STRUCTURE_INPUT);
+    mark!(build.dst_implicit_data, BufferUses::ACCELERATION_STRUCTURE_STORAGE);
+    mark!(build.scratch_data, BufferUses::ACCELERATION_STRUCTURE_SCRATCH);
+    // dst_addresses / dst_sizes are output by the build; mark them as
+    // STORAGE_READ_WRITE so the next compute SSBO read in the same
+    // submission emits a proper TRANSFER_WRITE→SHADER_READ transition.
+    if let Some(ref region) = build.dst_addresses_array {
+        mark!(region.buffer, BufferUses::STORAGE_READ_WRITE);
+    }
+    if let Some(ref region) = build.dst_sizes_array {
+        mark!(region.buffer, BufferUses::STORAGE_READ_WRITE);
+    }
+
+    let raw_encoder = &mut state.raw_encoder;
+    let snatch_guard = state.snatch_guard;
+
+    // Lower Arc<Buffer> -> &dyn hal::DynBuffer for the hal call. We hold
+    // these references across the call but inside a single sync block, so
+    // no awaits or lock juggling.
+    let dst_implicit = build.dst_implicit_data.try_raw(snatch_guard)?;
+    let scratch = build.scratch_data.try_raw(snatch_guard)?;
+    let src_infos = build.src_infos_array.buffer.try_raw(snatch_guard)?;
+    let src_infos_count = build.src_infos_count.try_raw(snatch_guard)?;
+    let dst_addresses_raw = build
+        .dst_addresses_array
+        .as_ref()
+        .map(|r| r.buffer.try_raw(snatch_guard))
+        .transpose()?;
+    let dst_sizes_raw = build
+        .dst_sizes_array
+        .as_ref()
+        .map(|r| r.buffer.try_raw(snatch_guard))
+        .transpose()?;
+
+    unsafe {
+        raw_encoder.transition_buffers(&input_barriers);
+        let info = wgt::ClusterAccelerationStructureBuildIndirectInfo {
+            input: &build.input,
+            dst_implicit_data: dst_implicit,
+            dst_implicit_data_offset: build.dst_implicit_data_offset,
+            scratch_data: scratch,
+            scratch_data_offset: build.scratch_data_offset,
+            dst_addresses_array: build.dst_addresses_array.as_ref().zip(dst_addresses_raw).map(
+                |(r, raw)| wgt::ClusterAccelerationStructureStridedBufferRegion {
+                    buffer: raw,
+                    offset: r.offset,
+                    stride: r.stride,
+                    size: r.size,
+                },
+            ),
+            dst_sizes_array: build.dst_sizes_array.as_ref().zip(dst_sizes_raw).map(
+                |(r, raw)| wgt::ClusterAccelerationStructureStridedBufferRegion {
+                    buffer: raw,
+                    offset: r.offset,
+                    stride: r.stride,
+                    size: r.size,
+                },
+            ),
+            src_infos_array: wgt::ClusterAccelerationStructureStridedBufferRegion {
+                buffer: src_infos,
+                offset: build.src_infos_array.offset,
+                stride: build.src_infos_array.stride,
+                size: build.src_infos_array.size,
+            },
+            src_infos_count,
+            src_infos_count_offset: build.src_infos_count_offset,
+        };
+        raw_encoder.build_cluster_acceleration_structures_indirect(&info);
+
+        // Make AS-build's writes available to downstream readers in the
+        // same submission. The exact downstream stage (compute SSBO read
+        // of dst_addresses, or another AS read of dst_implicit_data) is
+        // covered by wgpu's per-bind transition at the next use site --
+        // this barrier just promotes BUILD_OUTPUT -> SHADER_INPUT on the
+        // AS storage so that promotion is observable.
+        raw_encoder.place_acceleration_structure_barrier(hal::AccelerationStructureBarrier {
+            usage: hal::StateTransition {
+                from: hal::AccelerationStructureUses::BUILD_OUTPUT,
+                to: hal::AccelerationStructureUses::SHADER_INPUT,
+            },
+        });
+    }
+
+    Ok(())
+}
+
 impl CommandBufferMutable {
     pub(crate) fn validate_acceleration_structure_actions(
         &self,

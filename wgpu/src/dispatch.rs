@@ -388,6 +388,12 @@ pub trait CommandEncoderInterface: CommonTraits {
         tlas: &mut dyn Iterator<Item = &'a crate::Tlas>,
     );
 
+    /// `VK_NV_cluster_acceleration_structure` indirect build.
+    fn build_cluster_acceleration_structures_indirect(
+        &self,
+        info: &crate::ClusterAccelerationStructureBuildInfo<'_>,
+    );
+
     fn transition_resources<'a>(
         &mut self,
         buffer_transitions: &mut dyn Iterator<Item = wgt::BufferTransition<&'a DispatchBuffer>>,

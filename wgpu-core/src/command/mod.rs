@@ -1190,6 +1190,11 @@ impl CommandEncoder {
                     ArcCommand::BuildAccelerationStructures { blas, tlas } => {
                         ray_tracing::build_acceleration_structures(&mut state, blas, tlas)?;
                     }
+                    ArcCommand::BuildClusterAccelerationStructuresIndirect(build) => {
+                        ray_tracing::build_cluster_acceleration_structures_indirect(
+                            &mut state, build,
+                        )?;
+                    }
                     ArcCommand::TransitionResources {
                         buffer_transitions,
                         texture_transitions,
@@ -1565,6 +1570,8 @@ pub enum CommandEncoderError {
     #[error(transparent)]
     BuildAccelerationStructure(#[from] BuildAccelerationStructureError),
     #[error(transparent)]
+    BuildClusterAccelerationStructure(#[from] crate::ray_tracing::BuildClusterAsError),
+    #[error(transparent)]
     TransitionResources(#[from] TransitionResourcesError),
     #[error(transparent)]
     ComputePass(#[from] ComputePassError),
@@ -1616,6 +1623,7 @@ impl WebGpuError for CommandEncoderError {
             Self::Clear(e) => e.webgpu_error_type(),
             Self::Query(e) => e.webgpu_error_type(),
             Self::BuildAccelerationStructure(e) => e.webgpu_error_type(),
+            Self::BuildClusterAccelerationStructure(e) => e.webgpu_error_type(),
             Self::TransitionResources(e) => e.webgpu_error_type(),
             Self::ResourceUsage(e) => e.webgpu_error_type(),
             Self::ComputePass(e) => e.webgpu_error_type(),

@@ -1,7 +1,7 @@
 use super::conv;
 use arrayvec::ArrayVec;
 use ash::vk;
-use core::{mem, ops::Range};
+use core::{mem, ops::Range, ptr};
 use hashbrown::hash_map::Entry;
 
 const ALLOCATION_GRANULARITY: u32 = 16;
@@ -819,6 +819,102 @@ impl crate::CommandEncoder for super::CommandEncoder {
                 .acceleration_structure
                 .cmd_build_acceleration_structures(self.active, &geometry_infos, &ranges_ptrs);
         }
+    }
+
+    #[cfg(feature = "experimental-cluster-acceleration-structure")]
+    unsafe fn build_cluster_acceleration_structures_indirect(
+        &mut self,
+        info: &wgt::ClusterAccelerationStructureBuildIndirectInfo<'_, &super::Buffer>,
+    ) {
+        // Resolve per-buffer device addresses via the existing
+        // VK_KHR_acceleration_structure function table, which is always
+        // available alongside cluster_AS (cluster_AS depends on it).
+        let ray_tracing_functions = self
+            .device
+            .extension_fns
+            .ray_tracing
+            .as_ref()
+            .expect("Feature `EXPERIMENTAL_RAY_QUERY` not enabled");
+        let address_of = |buf: &super::Buffer, offset: u64| -> vk::DeviceAddress {
+            let addr = unsafe {
+                ray_tracing_functions.buffer_device_address.get_buffer_device_address(
+                    &vk::BufferDeviceAddressInfo::default().buffer(buf.raw_handle()),
+                )
+            };
+            addr + offset
+        };
+
+        let zero_region = vk::StridedDeviceAddressRegionKHR::default();
+        let region_of = |maybe_region: Option<
+            &wgt::ClusterAccelerationStructureStridedBufferRegion<&super::Buffer>,
+        >|
+         -> vk::StridedDeviceAddressRegionKHR {
+            match maybe_region {
+                Some(r) => vk::StridedDeviceAddressRegionKHR {
+                    device_address: address_of(r.buffer, r.offset),
+                    stride: r.stride,
+                    size: r.size,
+                },
+                None => zero_region,
+            }
+        };
+
+        // Build the input chain. `op_input` is held by-pointer so its
+        // payload must outlive the call -- pin it as a local first.
+        let bottom_level_input = match info.input.op_input {
+            wgt::ClusterAccelerationStructureOpInput::ClustersBottomLevel(ref bl) => {
+                vk::ClusterAccelerationStructureClustersBottomLevelInputNV::default()
+                    .max_total_cluster_count(bl.max_total_cluster_count)
+                    .max_cluster_count_per_acceleration_structure(
+                        bl.max_cluster_count_per_acceleration_structure,
+                    )
+            }
+        };
+        let op_input = match info.input.op_type {
+            wgt::ClusterAccelerationStructureOpType::BuildClustersBottomLevel => {
+                vk::ClusterAccelerationStructureOpInputNV {
+                    p_clusters_bottom_level: ptr::from_ref(&bottom_level_input).cast_mut(),
+                }
+            }
+        };
+        let input_info = vk::ClusterAccelerationStructureInputInfoNV::default()
+            .max_acceleration_structure_count(info.input.max_acceleration_structure_count)
+            .flags(conv::map_acceleration_structure_flags(info.input.flags))
+            .op_type(super::device::map_cluster_op_type(info.input.op_type))
+            .op_mode(super::device::map_cluster_op_mode(info.input.op_mode))
+            .op_input(op_input);
+
+        let commands_info = vk::ClusterAccelerationStructureCommandsInfoNV {
+            s_type:
+                <vk::ClusterAccelerationStructureCommandsInfoNV as vk::TaggedStructure>::STRUCTURE_TYPE,
+            p_next: core::ptr::null_mut(),
+            input: input_info,
+            dst_implicit_data: address_of(info.dst_implicit_data, info.dst_implicit_data_offset),
+            scratch_data: address_of(info.scratch_data, info.scratch_data_offset),
+            dst_addresses_array: region_of(info.dst_addresses_array.as_ref()),
+            dst_sizes_array: region_of(info.dst_sizes_array.as_ref()),
+            src_infos_array: vk::StridedDeviceAddressRegionKHR {
+                device_address: address_of(info.src_infos_array.buffer, info.src_infos_array.offset),
+                stride: info.src_infos_array.stride,
+                size: info.src_infos_array.size,
+            },
+            src_infos_count: address_of(info.src_infos_count, info.src_infos_count_offset),
+            address_resolution_flags:
+                vk::ClusterAccelerationStructureAddressResolutionFlagsNV::default(),
+            _marker: core::marker::PhantomData,
+        };
+        unsafe { self.cmd_build_cluster_acceleration_structures_indirect(&commands_info) };
+    }
+
+    #[cfg(not(feature = "experimental-cluster-acceleration-structure"))]
+    unsafe fn build_cluster_acceleration_structures_indirect(
+        &mut self,
+        _info: &wgt::ClusterAccelerationStructureBuildIndirectInfo<'_, &super::Buffer>,
+    ) {
+        unreachable!(
+            "build_cluster_acceleration_structures_indirect on Vulkan without the \
+             experimental-cluster-acceleration-structure Cargo feature",
+        )
     }
 
     unsafe fn place_acceleration_structure_barrier(
