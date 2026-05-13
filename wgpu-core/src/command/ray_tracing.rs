@@ -608,14 +608,21 @@ pub(crate) fn build_cluster_acceleration_structures_indirect(
     mark!(build.src_infos_count, BufferUses::BOTTOM_LEVEL_ACCELERATION_STRUCTURE_INPUT);
     mark!(build.dst_implicit_data, BufferUses::ACCELERATION_STRUCTURE_STORAGE);
     mark!(build.scratch_data, BufferUses::ACCELERATION_STRUCTURE_SCRATCH);
-    // dst_addresses / dst_sizes are output by the build; mark them as
-    // STORAGE_READ_WRITE so the next compute SSBO read in the same
-    // submission emits a proper TRANSFER_WRITE→SHADER_READ transition.
+    // dst_addresses / dst_sizes are written by the AS build at
+    // AS_BUILD pipeline stage with AS_WRITE access. The tracker
+    // needs a state whose `map_buffer_usage_to_barrier` produces
+    // (AS_BUILD stage + AS_WRITE access) so the auto-emitted barrier
+    // when the buffer is next bound (as SSBO, copy source, or another
+    // AS build input) properly drains the AS_WRITE writes for the
+    // downstream stage. The only state that fits is
+    // ACCELERATION_STRUCTURE_SCRATCH (semantically odd -- these
+    // aren't scratch -- but functionally identical). Callers must
+    // create the buffer with `BufferUsages::ACCELERATION_STRUCTURE_SCRATCH`.
     if let Some(ref region) = build.dst_addresses_array {
-        mark!(region.buffer, BufferUses::STORAGE_READ_WRITE);
+        mark!(region.buffer, BufferUses::ACCELERATION_STRUCTURE_SCRATCH);
     }
     if let Some(ref region) = build.dst_sizes_array {
-        mark!(region.buffer, BufferUses::STORAGE_READ_WRITE);
+        mark!(region.buffer, BufferUses::ACCELERATION_STRUCTURE_SCRATCH);
     }
 
     let raw_encoder = &mut state.raw_encoder;
