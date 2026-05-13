@@ -1150,6 +1150,29 @@ pub trait Device: WasmNotSendSync {
         desc: &GetAccelerationStructureBuildSizesDescriptor<<Self::A as Api>::Buffer>,
     ) -> AccelerationStructureBuildSizes;
 
+    /// Returns the device-local memory upper bounds required for a
+    /// `VK_NV_partitioned_acceleration_structure` build of the shape
+    /// described by `desc`.
+    ///
+    /// Same gating pattern as the cluster_AS variant below; backends that
+    /// don't expose
+    /// [`wgt::Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE`]
+    /// inherit the panicking default impl.
+    ///
+    /// # Safety
+    ///
+    /// The device must have been created with the
+    /// `partitionedAccelerationStructure` Vulkan feature enabled.
+    unsafe fn get_partitioned_acceleration_structure_build_sizes(
+        &self,
+        _desc: &wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::PartitionedAccelerationStructureBuildSizes {
+        unreachable!(
+            "get_partitioned_acceleration_structure_build_sizes called on a backend that \
+             doesn't support EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE",
+        )
+    }
+
     /// Returns the device-local memory upper bounds required for an indirect
     /// `VK_NV_cluster_acceleration_structure` build of the shape described
     /// by `desc`.
@@ -1810,6 +1833,36 @@ pub trait CommandEncoder: WasmNotSendSync + fmt::Debug {
             "build_cluster_acceleration_structures_indirect called on a backend that doesn't \
              support EXPERIMENTAL_CLUSTER_ACCELERATION_STRUCTURE; wgpu-core should have \
              gated this call on the feature flag",
+        )
+    }
+
+    /// Records a `VK_NV_partitioned_acceleration_structure` build into the
+    /// active command buffer.
+    ///
+    /// `dst_acceleration_structure` is the destination AS to write the
+    /// build output into. `src_acceleration_structure` is the prior AS
+    /// state for in-place update; pass `None` for a full rebuild.
+    ///
+    /// All input buffers (`src_infos`, `src_infos_count`, `scratch_data`)
+    /// flow through `info`. wgpu-core registers each in the surrounding
+    /// usage scope before dispatching.
+    ///
+    /// # Safety
+    ///
+    /// The device must have been created with the
+    /// `partitionedAccelerationStructure` Vulkan feature enabled.
+    unsafe fn build_partitioned_acceleration_structures(
+        &mut self,
+        _info: &wgt::PartitionedAccelerationStructureBuildIndirectInfo<
+            '_,
+            &<Self::A as Api>::Buffer,
+        >,
+        _src_acceleration_structure: Option<&<Self::A as Api>::AccelerationStructure>,
+        _dst_acceleration_structure: &<Self::A as Api>::AccelerationStructure,
+    ) {
+        unreachable!(
+            "build_partitioned_acceleration_structures called on a backend that doesn't \
+             support EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE",
         )
     }
     // modeled off dx12, because this is able to be polyfilled in vulkan as opposed to the other way round

@@ -414,3 +414,95 @@ pub struct ClusterAccelerationStructureBuildSizes {
     /// builds, which don't support in-place update.
     pub update_scratch_size: u64,
 }
+
+// ============================================================================
+// VK_NV_partitioned_acceleration_structure types
+// ============================================================================
+//
+// Pairs with VK_NV_cluster_acceleration_structure above. The partitioned
+// TLAS is the load-bearing companion: ray queries against a regular KHR
+// TLAS that instances cluster-built BLASes silently miss; the partitioned
+// TLAS's traversal knows how to follow the cluster-AS CLAS references.
+
+/// Descriptor passed to `Device::get_partitioned_acceleration_structure_build_sizes`
+/// and shared by the command-time
+/// `build_partitioned_acceleration_structures` call so the driver knows
+/// the upper-bound shape of the build.
+///
+/// Mirrors `VkPartitionedAccelerationStructureInstancesInputNV`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct PartitionedAccelerationStructureBuildSizesDescriptor {
+    /// Build performance / memory hints. Only the
+    /// `PREFER_FAST_TRACE` / `PREFER_FAST_BUILD` / `ALLOW_UPDATE` bits
+    /// have semantic meaning here; others are ignored.
+    pub flags: AccelerationStructureFlags,
+    /// Total number of instances across all partitions.
+    pub instance_count: u32,
+    /// Maximum number of instances in any single partition.
+    pub max_instance_per_partition_count: u32,
+    /// Number of partitions in this AS.
+    pub partition_count: u32,
+    /// Maximum number of instances that can live in the global partition.
+    pub max_instance_in_global_partition_count: u32,
+}
+
+/// Sizes returned by `Device::get_partitioned_acceleration_structure_build_sizes`.
+///
+/// Same shape as the cluster_AS version above. The values bound the
+/// destination AS storage and the build scratch needed for the build
+/// shape described by the descriptor.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct PartitionedAccelerationStructureBuildSizes {
+    /// Bytes required for the destination partitioned-AS storage.
+    pub acceleration_structure_size: u64,
+    /// Bytes required for the build scratch buffer.
+    pub build_scratch_size: u64,
+    /// Bytes required for in-place update scratch. Zero if the build
+    /// `flags` don't request `ALLOW_UPDATE`.
+    pub update_scratch_size: u64,
+}
+
+/// Argument bundle for the safe partitioned-AS build, generic over the
+/// buffer reference type — `&wgpu::Buffer` in the public API, lowered to
+/// the backend's concrete buffer type for the hal call.
+///
+/// Mirrors `VkBuildPartitionedAccelerationStructureInfoNV` but the AS
+/// destination is identified via a wgpu Tlas (resolved separately) so the
+/// tracker knows about it.
+#[derive(Clone, Debug)]
+pub struct PartitionedAccelerationStructureBuildIndirectInfo<'a, B> {
+    /// Upper-bound build shape.
+    pub input: &'a PartitionedAccelerationStructureBuildSizesDescriptor,
+    /// Per-instance WRITE_INSTANCE / UPDATE_INSTANCE op records.
+    pub src_infos: B,
+    /// Byte offset into `src_infos`.
+    pub src_infos_offset: u64,
+    /// Single-u32 indirect op-count buffer.
+    pub src_infos_count: B,
+    /// Byte offset into `src_infos_count`.
+    pub src_infos_count_offset: u64,
+    /// Build scratch.
+    pub scratch_data: B,
+    /// Byte offset into `scratch_data`.
+    pub scratch_data_offset: u64,
+}
+
+impl<'a, B> PartitionedAccelerationStructureBuildIndirectInfo<'a, B> {
+    /// Re-map every buffer reference through `f`.
+    pub fn map_buffers<B2>(
+        self,
+        mut f: impl FnMut(B) -> B2,
+    ) -> PartitionedAccelerationStructureBuildIndirectInfo<'a, B2> {
+        PartitionedAccelerationStructureBuildIndirectInfo {
+            input: self.input,
+            src_infos: f(self.src_infos),
+            src_infos_offset: self.src_infos_offset,
+            src_infos_count: f(self.src_infos_count),
+            src_infos_count_offset: self.src_infos_count_offset,
+            scratch_data: f(self.scratch_data),
+            scratch_data_offset: self.scratch_data_offset,
+        }
+    }
+}

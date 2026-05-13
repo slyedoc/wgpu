@@ -1746,6 +1746,25 @@ impl dispatch::DeviceInterface for CoreDevice {
         }
     }
 
+    fn get_partitioned_acceleration_structure_build_sizes(
+        &self,
+        desc: &wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
+    ) -> wgt::PartitionedAccelerationStructureBuildSizes {
+        let global = &self.context.0;
+        match global.device_get_partitioned_acceleration_structure_build_sizes(self.id, desc) {
+            Ok(sizes) => sizes,
+            Err(cause) => {
+                self.context.handle_error(
+                    &self.error_sink,
+                    cause,
+                    None,
+                    "Device::get_partitioned_acceleration_structure_build_sizes",
+                );
+                wgt::PartitionedAccelerationStructureBuildSizes::default()
+            }
+        }
+    }
+
     fn create_tlas(&self, desc: &crate::CreateTlasDescriptor<'_>) -> dispatch::DispatchTlas {
         let global = &self.context.0;
         let (id, error) =
@@ -2977,6 +2996,36 @@ impl dispatch::CommandEncoderInterface for CoreCommandEncoder {
                 &self.error_sink,
                 cause,
                 "CommandEncoder::build_cluster_acceleration_structures_indirect",
+            );
+        }
+    }
+
+    fn build_partitioned_acceleration_structures(
+        &self,
+        info: &crate::PartitionedAccelerationStructureBuildInfo<'_>,
+    ) {
+        let desc = wgc::ray_tracing::PartitionedAccelerationStructureBuildDescriptor {
+            input: info.input,
+            src_infos: info.src_infos.inner.as_core().id,
+            src_infos_offset: info.src_infos_offset,
+            src_infos_count: info.src_infos_count.inner.as_core().id,
+            src_infos_count_offset: info.src_infos_count_offset,
+            scratch_data: info.scratch_data.inner.as_core().id,
+            scratch_data_offset: info.scratch_data_offset,
+            src_acceleration_structure: info
+                .src_acceleration_structure
+                .map(|t| t.inner.as_core().id),
+            dst_acceleration_structure: info.dst_acceleration_structure.inner.as_core().id,
+        };
+        if let Err(cause) = self
+            .context
+            .0
+            .command_encoder_build_partitioned_acceleration_structures(self.id, desc)
+        {
+            self.context.handle_error_nolabel(
+                &self.error_sink,
+                cause,
+                "CommandEncoder::build_partitioned_acceleration_structures",
             );
         }
     }

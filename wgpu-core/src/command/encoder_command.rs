@@ -185,6 +185,11 @@ pub enum Command<R: ReferenceType> {
     BuildClusterAccelerationStructuresIndirect(
         crate::ray_tracing::OwnedClusterAccelerationStructureBuild<R>,
     ),
+    /// `VK_NV_partitioned_acceleration_structure` build. Like the cluster
+    /// variant above but the destination is a wgpu Tlas.
+    BuildPartitionedAccelerationStructures(
+        crate::ray_tracing::OwnedPartitionedAccelerationStructureBuild<R>,
+    ),
     TransitionResources {
         buffer_transitions: Vec<wgt::BufferTransition<R::Buffer>>,
         texture_transitions: Vec<wgt::TextureTransition<R::Texture>>,

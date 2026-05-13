@@ -208,6 +208,13 @@ pub trait DynCommandEncoder: DynResource + core::fmt::Debug {
         &mut self,
         info: &wgt::ClusterAccelerationStructureBuildIndirectInfo<'_, &dyn DynBuffer>,
     );
+    /// See [`CommandEncoder::build_partitioned_acceleration_structures`].
+    unsafe fn build_partitioned_acceleration_structures(
+        &mut self,
+        info: &wgt::PartitionedAccelerationStructureBuildIndirectInfo<'_, &dyn DynBuffer>,
+        src_acceleration_structure: Option<&dyn DynAccelerationStructure>,
+        dst_acceleration_structure: &dyn DynAccelerationStructure,
+    );
     unsafe fn copy_acceleration_structure_to_acceleration_structure(
         &mut self,
         src: &dyn DynAccelerationStructure,
@@ -703,6 +710,18 @@ impl<C: CommandEncoder + DynResource> DynCommandEncoder for C {
         // `map_buffers` preserves offsets / strides / sizes.
         let info = info.clone().map_buffers(|b| b.expect_downcast_ref());
         unsafe { C::build_cluster_acceleration_structures_indirect(self, &info) };
+    }
+
+    unsafe fn build_partitioned_acceleration_structures(
+        &mut self,
+        info: &wgt::PartitionedAccelerationStructureBuildIndirectInfo<'_, &dyn DynBuffer>,
+        src_acceleration_structure: Option<&dyn DynAccelerationStructure>,
+        dst_acceleration_structure: &dyn DynAccelerationStructure,
+    ) {
+        let info = info.clone().map_buffers(|b| b.expect_downcast_ref());
+        let src = src_acceleration_structure.map(|a| a.expect_downcast_ref());
+        let dst = dst_acceleration_structure.expect_downcast_ref();
+        unsafe { C::build_partitioned_acceleration_structures(self, &info, src, dst) };
     }
 
     unsafe fn copy_acceleration_structure_to_acceleration_structure(
