@@ -101,6 +101,13 @@ bitflags::bitflags! {
         /// Pairs with `STORAGE` + `BLAS_INPUT` when the same buffer needs to be
         /// both an AS-build output and a compute SSBO input.
         const ACCELERATION_STRUCTURE_STORAGE = 1 << 12;
+        /// Allows a buffer to be used as scratch for an acceleration structure
+        /// build. Required when supplying scratch to
+        /// `CommandEncoder::build_cluster_acceleration_structures_indirect` or
+        /// `build_partitioned_acceleration_structures` directly (the KHR
+        /// `build_acceleration_structures` path allocates scratch internally
+        /// and doesn't need this flag).
+        const ACCELERATION_STRUCTURE_SCRATCH = 1 << 13;
     }
 }
 
