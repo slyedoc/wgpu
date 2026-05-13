@@ -2271,6 +2271,7 @@ impl QuerySet {
 
 pub type BlasDescriptor<'a> = wgt::CreateBlasDescriptor<Label<'a>>;
 pub type TlasDescriptor<'a> = wgt::CreateTlasDescriptor<Label<'a>>;
+pub type PartitionedTlasDescriptor<'a> = wgt::CreatePartitionedTlasDescriptor<Label<'a>>;
 
 pub type BlasPrepareCompactResult = Result<(), BlasPrepareCompactError>;
 

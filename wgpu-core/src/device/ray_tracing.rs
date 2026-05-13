@@ -389,6 +389,87 @@ impl Device {
             tracking_data: TrackingData::new(self.tracker_indices.tlas_s.clone()),
         })
     }
+
+    /// Create a partitioned-AS TLAS via the `VK_NV_partitioned_acceleration_structure`
+    /// extension.
+    ///
+    /// This is the safe counterpart to the hal-allocation +
+    /// [`Device::create_tlas_from_hal`] dance that early callers needed:
+    /// the AS storage is computed from `desc.build_sizes_input` and
+    /// allocated through wgpu-hal, then wrapped as a `wgpu-core::Tlas`.
+    ///
+    /// Partitioned-AS builds are dispatched through
+    /// [`command::ray_tracing::build_partitioned_acceleration_structures`],
+    /// which does not run through the standard KHR build action
+    /// machinery — so wgpu's `built_index` machinery never updates for
+    /// these TLASes. We mark them as already-built with a sentinel index
+    /// (matching [`Device::create_tlas_from_hal`]): the underlying AS
+    /// storage is zero-initialised and the driver treats that as an
+    /// empty AS on the first build call.
+    pub fn create_partitioned_tlas(
+        self: &Arc<Self>,
+        desc: &resource::PartitionedTlasDescriptor,
+    ) -> Result<Arc<resource::Tlas>, CreateTlasError> {
+        self.check_is_valid()?;
+        self.require_features(Features::EXPERIMENTAL_PARTITIONED_ACCELERATION_STRUCTURE)?;
+
+        if desc.max_instances > self.limits.max_tlas_instance_count {
+            return Err(CreateTlasError::TooManyInstances(
+                self.limits.max_tlas_instance_count,
+                desc.max_instances,
+            ));
+        }
+
+        if desc
+            .flags
+            .contains(wgt::AccelerationStructureFlags::USE_TRANSFORM)
+        {
+            return Err(CreateTlasError::DisallowedFlag(
+                wgt::AccelerationStructureFlags::USE_TRANSFORM,
+            ));
+        }
+
+        // SAFETY: feature gate above asserts the backend implements this
+        // hal method.
+        let sizes = unsafe {
+            self.raw()
+                .get_partitioned_acceleration_structure_build_sizes(&desc.build_sizes_input)
+        };
+
+        let raw = unsafe {
+            self.raw()
+                .create_acceleration_structure(&hal::AccelerationStructureDescriptor {
+                    label: desc.label.as_deref(),
+                    size: sizes.acceleration_structure_size,
+                    format: hal::AccelerationStructureFormat::TopLevel,
+                    allow_compaction: false,
+                })
+        }
+        .map_err(|e| self.handle_hal_error_with_nonfatal_oom(e))?;
+
+        let built_sentinel = NonZeroU64::new(1).expect("1 is non-zero");
+
+        Ok(Arc::new(resource::Tlas {
+            raw: Snatchable::new(raw),
+            device: self.clone(),
+            size_info: hal::AccelerationStructureBuildSizes {
+                acceleration_structure_size: sizes.acceleration_structure_size,
+                build_scratch_size: sizes.build_scratch_size,
+                update_scratch_size: sizes.update_scratch_size,
+            },
+            flags: desc.flags,
+            update_mode: desc.update_mode,
+            built_index: RwLock::new(rank::TLAS_BUILT_INDEX, Some(built_sentinel)),
+            dependencies: RwLock::new(rank::TLAS_DEPENDENCIES, Vec::new()),
+            // Partitioned builds don't consume a wgpu-managed instance
+            // buffer; per-op writes flow through the caller's own
+            // `src_infos` buffer.
+            instance_buffer: None,
+            label: desc.label.to_string(),
+            max_instance_count: desc.max_instances,
+            tracking_data: TrackingData::new(self.tracker_indices.tlas_s.clone()),
+        }))
+    }
 }
 
 impl Global {
@@ -489,6 +570,40 @@ impl Global {
 
             let id = fid.assign(Fallible::Valid(tlas));
             api_log!("Device::create_tlas -> {id:?}");
+
+            return (id, None);
+        };
+
+        let id = fid.assign(Fallible::Invalid(Arc::new(error.to_string())));
+        (id, Some(error))
+    }
+
+    /// Forwards [`Device::create_partitioned_tlas`].
+    ///
+    /// Tracing intentionally omitted: the partitioned-AS feature path
+    /// (build + sizes query) has no trace coverage today, and replaying
+    /// a creation without the subsequent partitioned builds wouldn't be
+    /// useful.
+    pub fn device_create_partitioned_tlas(
+        &self,
+        device_id: id::DeviceId,
+        desc: &resource::PartitionedTlasDescriptor,
+        id_in: Option<TlasId>,
+    ) -> (TlasId, Option<CreateTlasError>) {
+        profiling::scope!("Device::create_partitioned_tlas");
+
+        let fid = self.hub.tlas_s.prepare(id_in);
+
+        let error = 'error: {
+            let device = self.hub.devices.get(device_id);
+
+            let tlas = match device.create_partitioned_tlas(desc) {
+                Ok(tlas) => tlas,
+                Err(e) => break 'error e,
+            };
+
+            let id = fid.assign(Fallible::Valid(tlas));
+            api_log!("Device::create_partitioned_tlas -> {id:?}");
 
             return (id, None);
         };
