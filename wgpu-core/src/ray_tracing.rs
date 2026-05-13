@@ -91,7 +91,7 @@ impl WebGpuError for GetClusterAsBuildSizesError {
 /// Mirrors [`wgt::ClusterAccelerationStructureBuildIndirectInfo`] but
 /// carries wgpu-tracked buffer references instead of raw hal handles.
 #[derive(Clone, Debug)]
-pub struct OwnedClusterAccelerationStructureBuild<R: crate::command::ReferenceType> {
+pub struct OwnedClusterAccelerationStructureBuild<R: ReferenceType> {
     /// Upper-bound input shape (must match the descriptor passed to
     /// `get_cluster_acceleration_structure_build_sizes`).
     pub input: wgt::ClusterAccelerationStructureBuildSizesDescriptor,
@@ -116,7 +116,7 @@ pub struct OwnedClusterAccelerationStructureBuild<R: crate::command::ReferenceTy
 
 /// Strided buffer region carrying a wgpu-tracked buffer reference.
 #[derive(Clone, Debug)]
-pub struct OwnedClusterStridedBufferRegion<R: crate::command::ReferenceType> {
+pub struct OwnedClusterStridedBufferRegion<R: ReferenceType> {
     pub buffer: R::Buffer,
     pub offset: u64,
     pub stride: u64,
@@ -127,21 +127,21 @@ pub struct OwnedClusterStridedBufferRegion<R: crate::command::ReferenceType> {
 #[derive(Clone, Debug)]
 pub struct ClusterAccelerationStructureBuildDescriptor<'a> {
     pub input: &'a wgt::ClusterAccelerationStructureBuildSizesDescriptor,
-    pub dst_implicit_data: crate::id::BufferId,
+    pub dst_implicit_data: BufferId,
     pub dst_implicit_data_offset: u64,
-    pub scratch_data: crate::id::BufferId,
+    pub scratch_data: BufferId,
     pub scratch_data_offset: u64,
     pub dst_addresses_array: Option<ClusterStridedBufferRegion>,
     pub dst_sizes_array: Option<ClusterStridedBufferRegion>,
     pub src_infos_array: ClusterStridedBufferRegion,
-    pub src_infos_count: crate::id::BufferId,
+    pub src_infos_count: BufferId,
     pub src_infos_count_offset: u64,
 }
 
 /// Public-API strided region (IDs at the boundary).
 #[derive(Clone, Copy, Debug)]
 pub struct ClusterStridedBufferRegion {
-    pub buffer: crate::id::BufferId,
+    pub buffer: BufferId,
     pub offset: u64,
     pub stride: u64,
     pub size: u64,
@@ -194,7 +194,7 @@ impl WebGpuError for GetPartitionedAsBuildSizesError {
 /// User-supplied descriptor for a partitioned-AS build, generic over the
 /// wgpu reference type (IDs at the public API, Arcs once resolved).
 #[derive(Clone, Debug)]
-pub struct OwnedPartitionedAccelerationStructureBuild<R: crate::command::ReferenceType> {
+pub struct OwnedPartitionedAccelerationStructureBuild<R: ReferenceType> {
     pub input: wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
     pub src_infos: R::Buffer,
     pub src_infos_offset: u64,
@@ -211,14 +211,14 @@ pub struct OwnedPartitionedAccelerationStructureBuild<R: crate::command::Referen
 #[derive(Clone, Copy, Debug)]
 pub struct PartitionedAccelerationStructureBuildDescriptor<'a> {
     pub input: &'a wgt::PartitionedAccelerationStructureBuildSizesDescriptor,
-    pub src_infos: crate::id::BufferId,
+    pub src_infos: BufferId,
     pub src_infos_offset: u64,
-    pub src_infos_count: crate::id::BufferId,
+    pub src_infos_count: BufferId,
     pub src_infos_count_offset: u64,
-    pub scratch_data: crate::id::BufferId,
+    pub scratch_data: BufferId,
     pub scratch_data_offset: u64,
-    pub src_acceleration_structure: Option<crate::id::TlasId>,
-    pub dst_acceleration_structure: crate::id::TlasId,
+    pub src_acceleration_structure: Option<TlasId>,
+    pub dst_acceleration_structure: TlasId,
 }
 
 /// Errors returned from
