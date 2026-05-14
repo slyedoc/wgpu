@@ -930,16 +930,14 @@ impl crate::CommandEncoder for super::CommandEncoder {
             };
             addr + offset
         };
-        // NV's `VkBuildPartitionedAccelerationStructureInfoNV` wants the
-        // **storage buffer device address** of the AS (not the AS handle's
-        // `vkGetAccelerationStructureDeviceAddressKHR` result). The
-        // validation layer flags the latter with VUID-VkDeviceAddress-size-11364
-        // because the address isn't tracked as a buffer device address.
-        let as_storage_address = |as_handle: &super::AccelerationStructure| -> vk::DeviceAddress {
+        let as_address = |as_handle: &super::AccelerationStructure| -> vk::DeviceAddress {
             unsafe {
-                ray_tracing_functions.buffer_device_address.get_buffer_device_address(
-                    &vk::BufferDeviceAddressInfo::default().buffer(as_handle.raw_buffer()),
-                )
+                ray_tracing_functions
+                    .acceleration_structure
+                    .get_acceleration_structure_device_address(
+                        &vk::AccelerationStructureDeviceAddressInfoKHR::default()
+                            .acceleration_structure(as_handle.raw_handle()),
+                    )
             }
         };
 
@@ -952,9 +950,9 @@ impl crate::CommandEncoder for super::CommandEncoder {
                 info.input.max_instance_in_global_partition_count,
             );
 
-        let dst_addr = as_storage_address(dst_acceleration_structure);
+        let dst_addr = as_address(dst_acceleration_structure);
         // 0 = "no source AS" per NV spec for first-build path.
-        let src_addr = src_acceleration_structure.map(as_storage_address).unwrap_or(0);
+        let src_addr = src_acceleration_structure.map(as_address).unwrap_or(0);
 
         let build_info = vk::BuildPartitionedAccelerationStructureInfoNV::default()
             .input(input_info)
