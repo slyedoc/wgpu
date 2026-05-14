@@ -80,6 +80,32 @@ unsafe extern "system" fn debug_utils_messenger_callback(
         return vk::FALSE;
     }
 
+    // Silence false-positive VUIDs against
+    // `vkCmdBuildPartitionedAccelerationStructuresNV` (VK_NV_partitioned_-
+    // acceleration_structure). The validation layer's generic-AS rules
+    // don't account for NV PAS's first-build and in-place-update model.
+    //
+    // VUID-VkBuildPartitionedAccelerationStructureInfoNV-srcAccelerationStructureData-parameter
+    //   Rejects `srcAccelerationStructureData == 0`, but the NV PAS spec
+    //   text reads "either NULL or an address of a previously built
+    //   PTLAS"; NV's vk_partitioned_tlas sample passes 0 for first build.
+    //
+    // VUID-vkCmdBuildPartitionedAccelerationStructuresNV-pBuildInfo-10549
+    //   Generic AS rule forbids src/dst overlap, but NV PAS's update
+    //   semantics require src == dst (same storage buffer); the NV
+    //   sample sets both addresses to the same buffer.
+    //
+    // TODO: upstream issues against KhronosGroup/Vulkan-Docs and
+    // KhronosGroup/Vulkan-ValidationLayers to either revise the VUID
+    // text or special-case the layer for this NV command.
+    const VUID_BUILD_PARTITIONED_AS_SRC_PARAMETER: i32 = 0x2e4054ff;
+    const VUID_BUILD_PARTITIONED_AS_BUILDINFO_10549: i32 = 0x76f25ef0;
+    if cd.message_id_number == VUID_BUILD_PARTITIONED_AS_SRC_PARAMETER
+        || cd.message_id_number == VUID_BUILD_PARTITIONED_AS_BUILDINFO_10549
+    {
+        return vk::FALSE;
+    }
+
     let level = match message_severity {
         // We intentionally suppress info messages down to debug
         // so that users are not innundated with info messages from the runtime.
