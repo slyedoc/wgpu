@@ -1062,6 +1062,9 @@ pub(super) fn map_cluster_op_mode(
         wgt::ClusterAccelerationStructureOpMode::ImplicitDestinations => {
             vk::ClusterAccelerationStructureOpModeNV::IMPLICIT_DESTINATIONS
         }
+        wgt::ClusterAccelerationStructureOpMode::ExplicitDestinations => {
+            vk::ClusterAccelerationStructureOpModeNV::EXPLICIT_DESTINATIONS
+        }
     }
 }
 

@@ -278,15 +278,20 @@ pub enum ClusterAccelerationStructureOpType {
 
 /// How destination addresses are supplied to a cluster AS build.
 ///
-/// Maps 1:1 to `VkClusterAccelerationStructureOpModeNV`. Only
-/// `ImplicitDestinations` is plumbed today; the explicit / size-query modes
-/// can be added when Aurora needs them.
+/// Maps 1:1 to `VkClusterAccelerationStructureOpModeNV`. The size-query
+/// mode (`COMPUTE_SIZES`) is intentionally not exposed — wgpu's
+/// `get_cluster_acceleration_structure_build_sizes` covers that path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ClusterAccelerationStructureOpMode {
     /// Driver sub-allocates inside `dst_implicit_data` and writes each
     /// per-op output's device address into `dst_addresses_array`.
     ImplicitDestinations,
+    /// Caller pre-populates `dst_addresses_array` with the target device
+    /// addresses; the driver writes each per-op output AT the supplied
+    /// address. Used by aurora to pin BLAS addresses per TLAS slot so
+    /// the TLAS instance pointer stays stable across frames.
+    ExplicitDestinations,
 }
 
 /// Per-op input shape for `BuildClustersBottomLevel`.
