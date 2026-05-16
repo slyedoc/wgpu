@@ -1031,7 +1031,9 @@ pub(super) fn make_cluster_op_input<'a>(
                 p_clusters_bottom_level: ptr::from_ref(bottom_level).cast_mut(),
             }
         }
-        wgt::ClusterAccelerationStructureOpType::BuildTriangleCluster => {
+        wgt::ClusterAccelerationStructureOpType::BuildTriangleCluster
+        | wgt::ClusterAccelerationStructureOpType::BuildTriangleClusterTemplate
+        | wgt::ClusterAccelerationStructureOpType::InstantiateTriangleCluster => {
             vk::ClusterAccelerationStructureOpInputNV {
                 p_triangle_clusters: ptr::from_ref(triangle_cluster).cast_mut(),
             }
@@ -1049,6 +1051,12 @@ pub(super) fn map_cluster_op_type(
         }
         wgt::ClusterAccelerationStructureOpType::BuildTriangleCluster => {
             vk::ClusterAccelerationStructureOpTypeNV::BUILD_TRIANGLE_CLUSTER
+        }
+        wgt::ClusterAccelerationStructureOpType::BuildTriangleClusterTemplate => {
+            vk::ClusterAccelerationStructureOpTypeNV::BUILD_TRIANGLE_CLUSTER_TEMPLATE
+        }
+        wgt::ClusterAccelerationStructureOpType::InstantiateTriangleCluster => {
+            vk::ClusterAccelerationStructureOpTypeNV::INSTANTIATE_TRIANGLE_CLUSTER
         }
     }
 }

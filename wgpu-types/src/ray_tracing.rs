@@ -274,6 +274,35 @@ pub enum ClusterAccelerationStructureOpType {
     /// `dst_addresses_array`. Pairs with
     /// [`ClusterAccelerationStructureOpInput::TriangleCluster`].
     BuildTriangleCluster,
+    /// Build per-cluster CLAS *templates* — topology-only CLAS skeletons
+    /// that are later combined with per-frame vertex positions via
+    /// [`Self::InstantiateTriangleCluster`].
+    ///
+    /// Each per-op input is a
+    /// `VkClusterAccelerationStructureBuildTriangleClusterTemplateInfoNV`
+    /// struct (in the user-supplied `src_infos_array`) carrying indices,
+    /// a placeholder vertex buffer pointer/stride used for size derivation,
+    /// optional `positionTruncateBitCount`, and
+    /// `instantiationBoundingBoxLimit` (the bloat-bbox device address
+    /// envelope the driver assumes future instantiations stay inside).
+    /// The output is a per-cluster template AS whose device address is
+    /// written to `dst_addresses_array`. Pairs with
+    /// [`ClusterAccelerationStructureOpInput::TriangleCluster`] (NV reuses
+    /// the same `pTriangleClusters` op-input as `BuildTriangleCluster`).
+    BuildTriangleClusterTemplate,
+    /// Instantiate per-frame CLASes from pre-built templates plus animated
+    /// vertex positions.
+    ///
+    /// Each per-op input is a
+    /// `VkClusterAccelerationStructureInstantiateClusterInfoNV` struct
+    /// carrying a `clusterTemplateAddress` (from a prior
+    /// [`Self::BuildTriangleClusterTemplate`] build) and the current frame's
+    /// `vertexBuffer.startAddress`/`strideInBytes`. The output is a
+    /// freshly-instantiated CLAS whose device address is written to
+    /// `dst_addresses_array`. Pairs with
+    /// [`ClusterAccelerationStructureOpInput::TriangleCluster`] (NV reuses
+    /// the same `pTriangleClusters` op-input as `BuildTriangleCluster`).
+    InstantiateTriangleCluster,
 }
 
 /// How destination addresses are supplied to a cluster AS build.
