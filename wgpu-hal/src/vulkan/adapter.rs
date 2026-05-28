@@ -160,6 +160,25 @@ impl PhysicalDeviceFeatures {
         &mut self.core
     }
 
+    /// Mutable accessor on the chained `VK_KHR_vulkan_memory_model`
+    /// feature struct so `open_with_callback` callbacks can opt in to
+    /// memory-model bits the wgpu [`Features`] flags don't expose
+    /// individually (e.g. `vulkanMemoryModelDeviceScope`, required
+    /// when naga emits Device-scope atomics from `OpControlBarrier`
+    /// / `atomicCompareExchangeWeak` / etc.).
+    ///
+    /// Returns `None` if the device doesn't support the underlying
+    /// feature struct (pre-Vulkan-1.2 without `VK_KHR_vulkan_memory_model`).
+    /// Callbacks must not turn fields OFF; that's the same contract as
+    /// the rest of `CreateDeviceCallbackArgs`.
+    ///
+    /// [`Features`]: wgt::Features
+    pub fn vulkan_memory_model_mut(
+        &mut self,
+    ) -> Option<&mut vk::PhysicalDeviceVulkanMemoryModelFeaturesKHR<'static>> {
+        self.vulkan_memory_model.as_mut()
+    }
+
     /// Add the members of `self` into `info.enabled_features` and its `p_next` chain.
     pub fn add_to_device_create<'a>(
         &'a mut self,
