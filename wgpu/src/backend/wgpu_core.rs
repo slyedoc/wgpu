@@ -1714,6 +1714,35 @@ impl dispatch::DeviceInterface for CoreDevice {
         .into()
     }
 
+    unsafe fn create_tlas_from_hal(
+        &self,
+        hal_tlas: Box<dyn hal::DynAccelerationStructure>,
+        desc: &crate::CreateTlasDescriptor<'_>,
+    ) -> dispatch::DispatchTlas {
+        let global = &self.context.0;
+        let (id, error) = unsafe {
+            global.device_create_tlas_from_hal_boxed(
+                self.id,
+                hal_tlas,
+                &desc.map_label(|l| l.map(Borrowed)),
+                None,
+            )
+        };
+        if let Some(cause) = error {
+            self.context.handle_error(
+                &self.error_sink,
+                cause,
+                desc.label,
+                "Device::create_tlas_from_hal",
+            );
+        }
+        CoreTlas {
+            context: self.context.clone(),
+            id,
+        }
+        .into()
+    }
+
     fn create_sampler(&self, desc: &crate::SamplerDescriptor<'_>) -> dispatch::DispatchSampler {
         let descriptor = wgc::resource::SamplerDescriptor {
             label: desc.label.map(Borrowed),

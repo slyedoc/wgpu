@@ -712,7 +712,11 @@ impl crate::DynBuffer for Buffer {}
 pub struct AccelerationStructure {
     raw: vk::AccelerationStructureKHR,
     buffer: vk::Buffer,
-    allocation: gpu_allocator::vulkan::Allocation,
+    /// `None` for externally-imported handles (see [`Self::from_raw`])
+    /// where caller owns the backing memory. `Some(_)` for the normal
+    /// `create_acceleration_structure` path, where `destroy_acceleration_structure`
+    /// frees the allocation through the device's gpu-allocator.
+    allocation: Option<gpu_allocator::vulkan::Allocation>,
     compacted_size_query: Option<vk::QueryPool>,
 }
 
@@ -724,6 +728,45 @@ impl AccelerationStructure {
     /// `vkGetAccelerationStructureDeviceAddressKHR` result.
     pub fn raw_buffer(&self) -> vk::Buffer {
         self.buffer
+    }
+
+    /// Returns the raw `vk::AccelerationStructureKHR` handle. Used
+    /// by external code that wraps a wgpu AS to call raw Vulkan
+    /// commands on it (e.g. NV partitioned-AS builds).
+    pub fn raw_handle(&self) -> vk::AccelerationStructureKHR {
+        self.raw
+    }
+
+    /// Wraps an externally-created `vk::AccelerationStructureKHR` +
+    /// its backing storage buffer as a wgpu-hal `AccelerationStructure`.
+    /// The caller manages both the AS handle and the buffer's memory
+    /// lifetime; wgpu-hal will NOT destroy them.
+    ///
+    /// Used by extensions (e.g. NV partitioned-AS) that build AS
+    /// objects through extension-specific entry points that wgpu
+    /// doesn't expose, then need to bind the resulting handle through
+    /// wgpu's standard pipeline / bind-group machinery.
+    ///
+    /// # Safety
+    ///
+    /// - `raw` and `buffer` must be valid handles created on the
+    ///   same device.
+    /// - `raw` must remain valid for the lifetime of the returned
+    ///   `AccelerationStructure`.
+    /// - `buffer` must back `raw`'s storage and outlive it.
+    /// - Memory aliasing rules apply: external memory must not be
+    ///   freed while wgpu may still reference the AS through a bind
+    ///   group.
+    pub unsafe fn from_raw(
+        raw: vk::AccelerationStructureKHR,
+        buffer: vk::Buffer,
+    ) -> Self {
+        Self {
+            raw,
+            buffer,
+            allocation: None,
+            compacted_size_query: None,
+        }
     }
 }
 

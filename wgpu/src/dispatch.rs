@@ -193,6 +193,16 @@ pub trait DeviceInterface: CommonTraits {
         sizes: crate::BlasGeometrySizeDescriptors,
     ) -> (Option<u64>, DispatchBlas);
     fn create_tlas(&self, desc: &crate::CreateTlasDescriptor<'_>) -> DispatchTlas;
+    /// # Safety
+    ///
+    /// - `hal_tlas` must come from this device's hal.
+    /// - `hal_tlas` must be a valid TLAS-compatible acceleration
+    ///   structure (or type-compatible, e.g. NV partitioned-AS).
+    unsafe fn create_tlas_from_hal(
+        &self,
+        hal_tlas: Box<dyn hal::DynAccelerationStructure>,
+        desc: &crate::CreateTlasDescriptor<'_>,
+    ) -> DispatchTlas;
     fn create_sampler(&self, desc: &crate::SamplerDescriptor<'_>) -> DispatchSampler;
     fn create_query_set(&self, desc: &crate::QuerySetDescriptor<'_>) -> DispatchQuerySet;
     fn create_command_encoder(

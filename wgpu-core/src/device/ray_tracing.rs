@@ -1,4 +1,4 @@
-use alloc::{string::ToString as _, sync::Arc, vec::Vec};
+use alloc::{boxed::Box, string::ToString as _, sync::Arc, vec::Vec};
 use core::mem::{size_of, ManuallyDrop};
 
 #[cfg(feature = "trace")]
@@ -255,6 +255,78 @@ impl Device {
             tracking_data: TrackingData::new(self.tracker_indices.tlas_s.clone()),
         }))
     }
+
+    /// Wrap an externally-created hal `AccelerationStructure` into a
+    /// wgpu_core `Tlas` resource so it can be bound through the
+    /// normal bind-group machinery. Caller owns the AS handle + its
+    /// backing memory; wgpu issues NO build commands against this
+    /// Tlas.
+    ///
+    /// Used by extensions (NV partitioned-AS) that build AS objects
+    /// out-of-band via extension entry points wgpu doesn't expose,
+    /// then need shader access to the result.
+    ///
+    /// # Safety
+    ///
+    /// - `hal_acceleration_structure` must come from this device's hal
+    ///   and remain valid for the lifetime of the returned `Tlas`.
+    /// - The hal AS must be type-compatible with `accelerationStructureEXT`
+    ///   shader bindings (i.e. a TOP_LEVEL AS, including NV partitioned-AS
+    ///   which uses the same descriptor type).
+    pub unsafe fn create_tlas_from_hal(
+        self: &Arc<Self>,
+        hal_acceleration_structure: Box<dyn hal::DynAccelerationStructure>,
+        desc: &resource::TlasDescriptor,
+    ) -> Result<Arc<resource::Tlas>, CreateTlasError> {
+        self.check_is_valid()?;
+        self.require_features(Features::EXPERIMENTAL_RAY_QUERY)?;
+
+        if desc.max_instances > self.limits.max_tlas_instance_count {
+            return Err(CreateTlasError::TooManyInstances(
+                self.limits.max_tlas_instance_count,
+                desc.max_instances,
+            ));
+        }
+
+        // Dummy instance_buffer — Tlas struct requires one, but the
+        // build path isn't used for from_hal so it's never touched.
+        // 1-byte allocation keeps wgpu's tracker happy.
+        let instance_buffer = unsafe {
+            self.raw().create_buffer(&hal::BufferDescriptor {
+                label: hal_label(
+                    Some("(wgpu-core) create_tlas_from_hal placeholder instances_buffer"),
+                    self.instance_flags,
+                ),
+                size: 1,
+                usage: wgt::BufferUses::COPY_DST
+                    | wgt::BufferUses::TOP_LEVEL_ACCELERATION_STRUCTURE_INPUT,
+                memory_flags: hal::MemoryFlags::PREFER_COHERENT,
+            })
+        }
+        .map_err(|e| self.handle_hal_error_with_nonfatal_oom(e))?;
+
+        // Dummy size_info — never read because we don't go through
+        // wgpu's TLAS build path.
+        let size_info = hal::AccelerationStructureBuildSizes {
+            acceleration_structure_size: 0,
+            update_scratch_size: 0,
+            build_scratch_size: 0,
+        };
+
+        Ok(Arc::new(resource::Tlas {
+            raw: Snatchable::new(hal_acceleration_structure),
+            device: self.clone(),
+            size_info,
+            flags: desc.flags,
+            update_mode: desc.update_mode,
+            built_index: RwLock::new(rank::TLAS_BUILT_INDEX, None),
+            dependencies: RwLock::new(rank::TLAS_DEPENDENCIES, Vec::new()),
+            instance_buffer: ManuallyDrop::new(instance_buffer),
+            label: desc.label.to_string(),
+            max_instance_count: desc.max_instances,
+            tracking_data: TrackingData::new(self.tracker_indices.tlas_s.clone()),
+        }))
+    }
 }
 
 impl Global {
@@ -314,6 +386,73 @@ impl Global {
             let device = self.hub.devices.get(device_id);
 
             let tlas = match device.create_tlas(desc) {
+                Ok(tlas) => tlas,
+                Err(e) => break 'error e,
+            };
+
+            #[cfg(feature = "trace")]
+            if let Some(trace) = device.trace.lock().as_mut() {
+                trace.add(Action::CreateTlas {
+                    id: tlas.to_trace(),
+                    desc: desc.clone(),
+                });
+            }
+
+            let id = fid.assign(Fallible::Valid(tlas));
+            api_log!("Device::create_tlas -> {id:?}");
+
+            return (id, None);
+        };
+
+        let id = fid.assign(Fallible::Invalid(Arc::new(error.to_string())));
+        (id, Some(error))
+    }
+
+    /// # Safety
+    ///
+    /// - `hal_acceleration_structure` must be created from `device_id`'s
+    ///   underlying hal device.
+    /// - `hal_acceleration_structure` must be a valid TLAS (or a
+    ///   type-compatible AS such as NV partitioned-AS).
+    pub unsafe fn device_create_tlas_from_hal<A: hal::Api>(
+        &self,
+        device_id: id::DeviceId,
+        hal_acceleration_structure: A::AccelerationStructure,
+        desc: &resource::TlasDescriptor,
+        id_in: Option<TlasId>,
+    ) -> (TlasId, Option<CreateTlasError>) {
+        unsafe {
+            self.device_create_tlas_from_hal_boxed(
+                device_id,
+                Box::new(hal_acceleration_structure),
+                desc,
+                id_in,
+            )
+        }
+    }
+
+    /// Type-erased variant of [`Self::device_create_tlas_from_hal`] —
+    /// the public `wgpu::Device::create_tlas_from_hal` indirects
+    /// through the dispatch trait which carries the hal AS as
+    /// `Box<dyn DynAccelerationStructure>`. wgpu-core's hub-side
+    /// boxing is done by the caller.
+    pub unsafe fn device_create_tlas_from_hal_boxed(
+        &self,
+        device_id: id::DeviceId,
+        hal_acceleration_structure: Box<dyn hal::DynAccelerationStructure>,
+        desc: &resource::TlasDescriptor,
+        id_in: Option<TlasId>,
+    ) -> (TlasId, Option<CreateTlasError>) {
+        profiling::scope!("Device::create_tlas_from_hal");
+
+        let fid = self.hub.tlas_s.prepare(id_in);
+
+        let error = 'error: {
+            let device = self.hub.devices.get(device_id);
+
+            let tlas = match unsafe {
+                device.create_tlas_from_hal(hal_acceleration_structure, desc)
+            } {
                 Ok(tlas) => tlas,
                 Err(e) => break 'error e,
             };

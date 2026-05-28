@@ -2587,7 +2587,7 @@ impl crate::Device for super::Device {
             Ok(super::AccelerationStructure {
                 raw: raw_acceleration_structure,
                 buffer: raw_buffer,
-                allocation,
+                allocation: Some(allocation),
                 compacted_size_query: pool,
             })
         }
@@ -2608,15 +2608,17 @@ impl crate::Device for super::Device {
             ray_tracing_functions
                 .acceleration_structure
                 .destroy_acceleration_structure(acceleration_structure.raw, None);
-            self.shared
-                .raw
-                .destroy_buffer(acceleration_structure.buffer, None);
-            let result = self
-                .mem_allocator
-                .lock()
-                .free(acceleration_structure.allocation);
-            if let Err(err) = result {
-                log::warn!("Failed to free buffer acceleration structure: {err}");
+            // Externally-imported ASes (`from_raw`) leave both the
+            // buffer and allocation to the caller; only owned ASes
+            // have an allocation to free + buffer to destroy here.
+            if let Some(allocation) = acceleration_structure.allocation {
+                self.shared
+                    .raw
+                    .destroy_buffer(acceleration_structure.buffer, None);
+                let result = self.mem_allocator.lock().free(allocation);
+                if let Err(err) = result {
+                    log::warn!("Failed to free buffer acceleration structure: {err}");
+                }
             }
             if let Some(query) = acceleration_structure.compacted_size_query {
                 self.shared.raw.destroy_query_pool(query, None)

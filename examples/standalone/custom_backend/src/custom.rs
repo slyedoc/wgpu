@@ -226,6 +226,14 @@ impl DeviceInterface for CustomDevice {
         unimplemented!()
     }
 
+    unsafe fn create_tlas_from_hal(
+        &self,
+        _hal_tlas: Box<dyn wgpu::hal::DynAccelerationStructure>,
+        _desc: &wgpu::CreateTlasDescriptor<'_>,
+    ) -> wgpu::custom::DispatchTlas {
+        unimplemented!()
+    }
+
     fn create_sampler(&self, _desc: &wgpu::SamplerDescriptor<'_>) -> wgpu::custom::DispatchSampler {
         unimplemented!()
     }

@@ -693,6 +693,47 @@ impl Device {
             lowest_unmodified: 0,
         }
     }
+
+    /// Wrap an externally-created hal acceleration structure as a
+    /// `Tlas` so it can be bound through wgpu's normal bind-group
+    /// machinery. Caller manages the AS handle + its backing memory
+    /// lifetime; wgpu issues NO build commands against the returned
+    /// Tlas.
+    ///
+    /// Used by extensions (e.g. NV partitioned-AS) that build AS
+    /// objects through extension-specific entry points wgpu doesn't
+    /// expose, then need to bind the result through standard shader
+    /// `accelerationStructureEXT` slots.
+    ///
+    /// # Safety
+    ///
+    /// - `hal_tlas` must have been created from this device's
+    ///   underlying hal.
+    /// - `hal_tlas` must remain valid for the lifetime of the returned
+    ///   `Tlas`.
+    /// - `hal_tlas` must be type-compatible with `accelerationStructureEXT`
+    ///   bindings (TOP_LEVEL semantics).
+    /// - `desc.max_instances` is reflected in the returned `Tlas`'s
+    ///   instances vector but is otherwise unused (wgpu does not
+    ///   build through this Tlas).
+    #[cfg(wgpu_core)]
+    #[must_use]
+    pub unsafe fn create_tlas_from_hal<A: hal::Api>(
+        &self,
+        hal_tlas: A::AccelerationStructure,
+        desc: &CreateTlasDescriptor<'_>,
+    ) -> Tlas {
+        let tlas = unsafe {
+            self.inner
+                .create_tlas_from_hal(Box::new(hal_tlas), desc)
+        };
+
+        Tlas {
+            inner: tlas,
+            instances: vec![None; desc.max_instances as usize],
+            lowest_unmodified: 0,
+        }
+    }
 }
 
 /// Requesting a device from an [`Adapter`] failed.
