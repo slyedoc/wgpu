@@ -1720,6 +1720,7 @@ pub trait CommandEncoder: WasmNotSendSync + fmt::Debug {
         &mut self,
         barrier: AccelerationStructureBarrier,
     );
+
     // modeled off dx12, because this is able to be polyfilled in vulkan as opposed to the other way round
     unsafe fn read_acceleration_structure_compact_size(
         &mut self,

@@ -4,6 +4,7 @@ use alloc::{string::ToString, vec::Vec};
 use core::mem::MaybeUninit;
 
 use ash::{ext, khr, vk};
+use ash::vk::TaggedStructure;
 
 macro_rules! to_u64 {
     ($expr:expr) => {{
@@ -65,7 +66,7 @@ impl super::Instance {
             let properties2 = vk::PhysicalDeviceProperties2KHR::default();
 
             let mut drm_props = vk::PhysicalDeviceDrmPropertiesEXT::default();
-            let mut properties2 = properties2.push_next(&mut drm_props);
+            let mut properties2 = properties2.push(&mut drm_props);
 
             unsafe {
                 self.shared
@@ -108,7 +109,7 @@ impl super::Instance {
         ))?;
 
         let acquire_drm_display_instance =
-            ext::acquire_drm_display::Instance::new(&self.shared.entry, &self.shared.raw);
+            ext::acquire_drm_display::Instance::load(&self.shared.entry, &self.shared.raw);
 
         let display = unsafe {
             acquire_drm_display_instance
@@ -122,7 +123,7 @@ impl super::Instance {
                 .expect("Failed to acquire drm display")
         }
 
-        let display_instance = khr::display::Instance::new(&self.shared.entry, &self.shared.raw);
+        let display_instance = khr::display::Instance::load(&self.shared.entry, &self.shared.raw);
 
         let modes = unsafe {
             display_instance

@@ -9,6 +9,7 @@ use core::{
 
 use arrayvec::ArrayVec;
 use ash::{ext, vk};
+use ash::vk::TaggedStructure;
 use hashbrown::hash_map::Entry;
 use parking_lot::Mutex;
 
@@ -216,7 +217,7 @@ impl super::DeviceShared {
                     multiview_info = vk::RenderPassMultiviewCreateInfoKHR::default()
                         .view_masks(&mask)
                         .correlation_masks(&mask);
-                    vk_info = vk_info.push_next(&mut multiview_info);
+                    vk_info = vk_info.push(&mut multiview_info);
                 }
 
                 let raw = unsafe {
@@ -504,11 +505,11 @@ impl super::Device {
         let mut format_list_info = vk::ImageFormatListCreateInfo::default();
         if !vk_view_formats.is_empty() {
             format_list_info = format_list_info.view_formats(&vk_view_formats);
-            vk_info = vk_info.push_next(&mut format_list_info);
+            vk_info = vk_info.push(&mut format_list_info);
         }
 
         if let Some(ext_info) = external_memory_image_create_info {
-            vk_info = vk_info.push_next(ext_info);
+            vk_info = vk_info.push(ext_info);
         }
 
         let raw = unsafe { self.shared.raw.create_image(&vk_info, None) }.map_err(map_err)?;
@@ -585,7 +586,7 @@ impl super::Device {
         let memory_allocate_info = vk::MemoryAllocateInfo::default()
             .allocation_size(image.requirements.size)
             .memory_type_index(mem_type_index as _)
-            .push_next(&mut import_memory_info);
+            .push(&mut import_memory_info);
         let memory = unsafe { self.shared.raw.allocate_memory(&memory_allocate_info, None) }
             .map_err(super::map_host_device_oom_err)?;
 
@@ -808,7 +809,7 @@ impl super::Device {
         let mut memory_budget_properties = vk::PhysicalDeviceMemoryBudgetPropertiesEXT::default();
 
         let mut memory_properties =
-            vk::PhysicalDeviceMemoryProperties2::default().push_next(&mut memory_budget_properties);
+            vk::PhysicalDeviceMemoryProperties2::default().push(&mut memory_budget_properties);
 
         unsafe {
             get_physical_device_properties.get_physical_device_memory_properties2(
@@ -866,6 +867,7 @@ impl super::Device {
 
         Ok(())
     }
+
 }
 
 impl crate::Device for super::Device {
@@ -1149,7 +1151,7 @@ impl crate::Device for super::Device {
         if self.shared.private_caps.image_view_usage && !desc.usage.is_empty() {
             image_view_info =
                 vk::ImageViewUsageCreateInfo::default().usage(conv::map_texture_usage(desc.usage));
-            vk_info = vk_info.push_next(&mut image_view_info);
+            vk_info = vk_info.push(&mut image_view_info);
         }
 
         let raw = unsafe { self.shared.raw.create_image_view(&vk_info, None) }
@@ -1379,7 +1381,7 @@ impl crate::Device for super::Device {
         let mut binding_flag_info =
             vk::DescriptorSetLayoutBindingFlagsCreateInfo::default().binding_flags(&binding_flags);
 
-        let vk_info = vk_info.push_next(&mut binding_flag_info);
+        let vk_info = vk_info.push(&mut binding_flag_info);
 
         let raw = unsafe {
             self.shared
@@ -1697,7 +1699,7 @@ impl crate::Device for super::Device {
                             .dst_binding(next_binding)
                             .descriptor_type(conv::map_binding_type(layout.ty))
                             .descriptor_count(entry.count)
-                            .push_next(local_acceleration_structure_infos),
+                            .push(local_acceleration_structure_infos),
                     );
                     next_binding += 1;
                 }
@@ -1913,7 +1915,7 @@ impl crate::Device for super::Device {
                     vk::ConservativeRasterizationModeEXT::OVERESTIMATE,
                 );
         if desc.primitive.conservative {
-            vk_rasterization = vk_rasterization.push_next(&mut vk_rasterization_conservative_state);
+            vk_rasterization = vk_rasterization.push(&mut vk_rasterization_conservative_state);
         }
 
         let mut vk_depth_stencil = vk::PipelineDepthStencilStateCreateInfo::default();
@@ -2217,7 +2219,7 @@ impl crate::Device for super::Device {
         Ok(if self.shared.private_caps.timeline_semaphores {
             let mut sem_type_info =
                 vk::SemaphoreTypeCreateInfo::default().semaphore_type(vk::SemaphoreType::TIMELINE);
-            let vk_info = vk::SemaphoreCreateInfo::default().push_next(&mut sem_type_info);
+            let vk_info = vk::SemaphoreCreateInfo::default().push(&mut sem_type_info);
             let raw = unsafe { self.shared.raw.create_semaphore(&vk_info, None) }
                 .map_err(super::map_host_device_oom_err)?;
 
@@ -2446,7 +2448,7 @@ impl crate::Device for super::Device {
                 .get_acceleration_structure_build_sizes(
                     vk::AccelerationStructureBuildTypeKHR::DEVICE,
                     &geometry_info,
-                    &primitive_counts,
+                    Some(&primitive_counts),
                     &mut raw,
                 )
         }
@@ -2703,7 +2705,7 @@ impl crate::Device for super::Device {
         let mut memory_budget_properties = vk::PhysicalDeviceMemoryBudgetPropertiesEXT::default();
 
         let mut memory_properties =
-            vk::PhysicalDeviceMemoryProperties2::default().push_next(&mut memory_budget_properties);
+            vk::PhysicalDeviceMemoryProperties2::default().push(&mut memory_budget_properties);
 
         unsafe {
             get_physical_device_properties.get_physical_device_memory_properties2(

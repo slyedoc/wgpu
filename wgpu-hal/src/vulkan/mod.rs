@@ -666,6 +666,15 @@ pub struct Buffer {
     allocation: Option<Mutex<BufferMemoryBacking>>,
 }
 impl Buffer {
+    /// Returns the raw `vk::Buffer` handle.
+    ///
+    /// Useful for resolving the buffer's device address via
+    /// `vkGetBufferDeviceAddressKHR` outside the wgpu safe API
+    /// (the cluster-AS path needs this to feed indirect-build
+    /// descriptors).
+    pub fn raw_handle(&self) -> vk::Buffer {
+        self.raw
+    }
     /// # Safety
     ///
     /// - `vk_buffer`'s memory must be managed by the caller
@@ -705,6 +714,17 @@ pub struct AccelerationStructure {
     buffer: vk::Buffer,
     allocation: gpu_allocator::vulkan::Allocation,
     compacted_size_query: Option<vk::QueryPool>,
+}
+
+impl AccelerationStructure {
+    /// Returns the raw `vk::Buffer` backing this acceleration
+    /// structure's storage. Needed by the NV partitioned-AS build
+    /// path, which addresses the AS via the storage buffer's device
+    /// address rather than the AS handle's
+    /// `vkGetAccelerationStructureDeviceAddressKHR` result.
+    pub fn raw_buffer(&self) -> vk::Buffer {
+        self.buffer
+    }
 }
 
 impl crate::DynAccelerationStructure for AccelerationStructure {}

@@ -10,6 +10,7 @@ use std::thread;
 
 use arrayvec::ArrayVec;
 use ash::{ext, khr, vk};
+use ash::vk::TaggedStructure;
 use parking_lot::RwLock;
 
 unsafe extern "system" fn debug_utils_messenger_callback(
@@ -337,7 +338,7 @@ impl super::Instance {
             if extensions.contains(&ext::debug_utils::NAME) {
                 log::debug!("Enabling debug utils");
 
-                let extension = ext::debug_utils::Instance::new(&entry, &raw_instance);
+                let extension = ext::debug_utils::Instance::load(&entry, &raw_instance);
                 let vk_info = debug_utils_create_info.to_vk_create_info();
                 let messenger =
                     unsafe { extension.create_debug_utils_messenger(&vk_info, None) }.unwrap();
@@ -362,7 +363,7 @@ impl super::Instance {
         let get_physical_device_properties =
             if extensions.contains(&khr::get_physical_device_properties2::NAME) {
                 log::debug!("Enabling device properties2");
-                Some(khr::get_physical_device_properties2::Instance::new(
+                Some(khr::get_physical_device_properties2::Instance::load(
                     &entry,
                     &raw_instance,
                 ))
@@ -402,7 +403,7 @@ impl super::Instance {
 
         let surface = {
             let xlib_loader =
-                khr::xlib_surface::Instance::new(&self.shared.entry, &self.shared.raw);
+                khr::xlib_surface::Instance::load(&self.shared.entry, &self.shared.raw);
             let info = vk::XlibSurfaceCreateInfoKHR::default()
                 .flags(vk::XlibSurfaceCreateFlagsKHR::empty())
                 .window(window)
@@ -427,7 +428,7 @@ impl super::Instance {
         }
 
         let surface = {
-            let xcb_loader = khr::xcb_surface::Instance::new(&self.shared.entry, &self.shared.raw);
+            let xcb_loader = khr::xcb_surface::Instance::load(&self.shared.entry, &self.shared.raw);
             let info = vk::XcbSurfaceCreateInfoKHR::default()
                 .flags(vk::XcbSurfaceCreateFlagsKHR::empty())
                 .window(window)
@@ -453,7 +454,7 @@ impl super::Instance {
 
         let surface = {
             let w_loader =
-                khr::wayland_surface::Instance::new(&self.shared.entry, &self.shared.raw);
+                khr::wayland_surface::Instance::load(&self.shared.entry, &self.shared.raw);
             let info = vk::WaylandSurfaceCreateInfoKHR::default()
                 .flags(vk::WaylandSurfaceCreateFlagsKHR::empty())
                 .display(display)
@@ -477,7 +478,7 @@ impl super::Instance {
 
         let surface = {
             let a_loader =
-                khr::android_surface::Instance::new(&self.shared.entry, &self.shared.raw);
+                khr::android_surface::Instance::load(&self.shared.entry, &self.shared.raw);
             let info = vk::AndroidSurfaceCreateInfoKHR::default()
                 .flags(vk::AndroidSurfaceCreateFlagsKHR::empty())
                 .window(window);
@@ -505,7 +506,7 @@ impl super::Instance {
                 .hinstance(hinstance)
                 .hwnd(hwnd);
             let win32_loader =
-                khr::win32_surface::Instance::new(&self.shared.entry, &self.shared.raw);
+                khr::win32_surface::Instance::load(&self.shared.entry, &self.shared.raw);
             unsafe {
                 win32_loader
                     .create_win32_surface(&info, None)
@@ -531,7 +532,7 @@ impl super::Instance {
         // so no need to retain it beyond the scope of this function.
         let surface = {
             let metal_loader =
-                ext::metal_surface::Instance::new(&self.shared.entry, &self.shared.raw);
+                ext::metal_surface::Instance::load(&self.shared.entry, &self.shared.raw);
             let vk_info = vk::MetalSurfaceCreateInfoEXT::default()
                 .flags(vk::MetalSurfaceCreateFlagsEXT::empty())
                 .layer(layer.as_ptr().as_ptr());
@@ -795,7 +796,7 @@ impl super::Instance {
                 .as_mut()
                 .map(|create_info| create_info.to_vk_create_info());
             if let Some(debug_utils_create_info) = debug_utils_create_info.as_mut() {
-                create_info = create_info.push_next(debug_utils_create_info);
+                create_info = create_info.push(debug_utils_create_info);
             }
 
             // Enable explicit validation features if available
@@ -817,7 +818,7 @@ impl super::Instance {
 
                 validation_features = vk::ValidationFeaturesEXT::default()
                     .enabled_validation_features(&validation_feature_list);
-                create_info = create_info.push_next(&mut validation_features);
+                create_info = create_info.push(&mut validation_features);
             }
 
             unsafe {

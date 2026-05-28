@@ -570,7 +570,7 @@ impl crate::CommandEncoder for super::CommandEncoder {
             [vk::AccelerationStructureBuildGeometryInfoKHR; CAPACITY_OUTER],
         >::with_capacity(descriptor_count);
         let mut ranges_ptrs = smallvec::SmallVec::<
-            [&[vk::AccelerationStructureBuildRangeInfoKHR]; CAPACITY_OUTER],
+            [Option<&[vk::AccelerationStructureBuildRangeInfoKHR]>; CAPACITY_OUTER],
         >::with_capacity(descriptor_count);
 
         for desc in descriptors {
@@ -733,7 +733,7 @@ impl crate::CommandEncoder for super::CommandEncoder {
         for (i, geometry_info) in geometry_infos.iter_mut().enumerate() {
             geometry_info.geometry_count = geometries_storage[i].len() as u32;
             geometry_info.p_geometries = geometries_storage[i].as_ptr();
-            ranges_ptrs.push(&ranges_storage[i]);
+            ranges_ptrs.push(Some(&ranges_storage[i][..]));
         }
 
         unsafe {

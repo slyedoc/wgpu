@@ -267,7 +267,7 @@ raw-window-metal = "1.0"
 
 # Vulkan dependencies
 android_system_properties = "0.1.1"
-ash = "0.38"
+ash = { version = "0.38", features = ["provisional"] }
 gpu-descriptor = "0.3.2"
 
 # DX12 dependencies
@@ -320,6 +320,18 @@ ndk-sys = "0.6"
 # These overrides allow our examples to explicitly depend on release crates
 [patch.crates-io]
 wgpu = { path = "./wgpu" }
+
+# ash from upstream master. Cluster-AS bindings landed via:
+#   PR #1033 (cluster_acceleration_structure) merged 2026-05-05
+#   PR #1035 (partitioned_acceleration_structure) merged 2026-05-08
+# Crates.io ash 0.38.x doesn't ship these yet; ash 0.39 (Vulkan 1.4
+# milestone https://github.com/ash-rs/ash/milestone/2) has no firm
+# release date.
+ash = { git = "https://github.com/ash-rs/ash.git", branch = "master" }
+# gpu-allocator fork that targets ash master's `push` (renamed from
+# `push_next` in the 1.4 milestone work). Stock gpu-allocator on
+# crates.io still uses the old `push_next` and won't compile.
+gpu-allocator = { git = "https://github.com/slyedoc/gpu-allocator.git", branch = "ash-push-rename" }
 
 env_logger = { version = "0.11", git = "https://github.com/rust-cli/env_logger.git", rev = "d550741" }
 libtest-mimic = { version = "0.8", git = "https://github.com/cwfitzgerald/libtest-mimic.git", rev = "9979b3c" }
