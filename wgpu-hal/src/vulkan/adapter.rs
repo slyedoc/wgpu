@@ -151,6 +151,15 @@ impl PhysicalDeviceFeatures {
         self.core
     }
 
+    /// Mutable accessor on the core `vk::PhysicalDeviceFeatures` bits so
+    /// `open_with_callback` callbacks can enable additional features
+    /// (e.g. `sparse_binding`) that the wgpu feature flags don't surface.
+    /// Callbacks must not turn features OFF; that's the same contract as
+    /// the rest of `CreateDeviceCallbackArgs`.
+    pub fn core_mut(&mut self) -> &mut vk::PhysicalDeviceFeatures {
+        &mut self.core
+    }
+
     /// Add the members of `self` into `info.enabled_features` and its `p_next` chain.
     pub fn add_to_device_create<'a>(
         &'a mut self,
