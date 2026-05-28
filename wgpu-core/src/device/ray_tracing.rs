@@ -313,13 +313,21 @@ impl Device {
             build_scratch_size: 0,
         };
 
+        // Mark the Tlas as "already built" — the caller built it
+        // externally (e.g. NV partitioned-AS via `vkCmdBuildPartitionedAccelerationStructuresNV`).
+        // Without this, bind-time validation rejects the Tlas with
+        // "used before built". Value is opaque; any `NonZeroU64`
+        // distinguishes "built" from "not yet built".
+        let externally_built_index =
+            core::num::NonZeroU64::new(u64::MAX).expect("u64::MAX is non-zero");
+
         Ok(Arc::new(resource::Tlas {
             raw: Snatchable::new(hal_acceleration_structure),
             device: self.clone(),
             size_info,
             flags: desc.flags,
             update_mode: desc.update_mode,
-            built_index: RwLock::new(rank::TLAS_BUILT_INDEX, None),
+            built_index: RwLock::new(rank::TLAS_BUILT_INDEX, Some(externally_built_index)),
             dependencies: RwLock::new(rank::TLAS_DEPENDENCIES, Vec::new()),
             instance_buffer: ManuallyDrop::new(instance_buffer),
             label: desc.label.to_string(),
