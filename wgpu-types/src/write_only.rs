@@ -65,7 +65,8 @@ pub struct WriteOnly<'a, T: ?Sized> {
 // `WriteOnly<T>` is like `&mut T` in that
 // * It provides only exclusive access to the memory it points to, so `T: Sync` is not required.
 // * Sending it creates the opportunity to send a `T`, so `T: Send` is required.
-unsafe impl<T: Send> Send for WriteOnly<'_, T> {}
+// `?Sized` so slice views (`WriteOnly<[u8]>`) are `Send`, like `&mut [u8]`.
+unsafe impl<T: ?Sized + Send> Send for WriteOnly<'_, T> {}
 
 // SAFETY:
 // `WriteOnly<T>` does not ever expose any `&T`, and therefore may unconditionally implement `Sync`.
