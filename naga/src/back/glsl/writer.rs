@@ -743,7 +743,9 @@ impl<'a, W: Write> Writer<'a, W> {
             // Textures and samplers are handled directly in `Writer::write`.
             crate::AddressSpace::Handle => unreachable!(),
             // ray tracing pipelines unsupported
-            crate::AddressSpace::RayPayload | crate::AddressSpace::IncomingRayPayload => {
+            crate::AddressSpace::RayPayload
+            | crate::AddressSpace::IncomingRayPayload
+            | crate::AddressSpace::HitAttribute => {
                 unreachable!()
             }
         }

@@ -653,7 +653,11 @@ impl FunctionInfo {
                 let var = &resolve_context.global_vars[gh];
                 let uniform = match var.space {
                     // local data is non-uniform
-                    As::Function | As::Private | As::RayPayload | As::IncomingRayPayload => false,
+                    As::Function
+                    | As::Private
+                    | As::RayPayload
+                    | As::IncomingRayPayload
+                    | As::HitAttribute => false,
                     // workgroup memory is exclusively accessed by the group
                     // task payload memory is very similar to workgroup memory
                     As::WorkGroup | As::TaskPayload => true,

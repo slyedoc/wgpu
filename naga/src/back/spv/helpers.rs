@@ -62,6 +62,7 @@ pub(super) const fn map_storage_class(space: crate::AddressSpace) -> spirv::Stor
         //accessed in a ray tracing pipeline stage.
         crate::AddressSpace::RayPayload => spirv::StorageClass::RayPayloadKHR,
         crate::AddressSpace::IncomingRayPayload => spirv::StorageClass::IncomingRayPayloadKHR,
+        crate::AddressSpace::HitAttribute => spirv::StorageClass::HitAttributeKHR,
     }
 }
 

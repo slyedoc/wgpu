@@ -44,6 +44,16 @@ pub fn map_address_space<'a>(
                 }))
             }
         }
+        "hit_attribute" => {
+            if enable_extensions.contains(ImplementedEnableExtension::WgpuRayTracingPipeline) {
+                Ok(crate::AddressSpace::HitAttribute)
+            } else {
+                Err(Box::new(Error::EnableExtensionNotEnabled {
+                    span,
+                    kind: ImplementedEnableExtension::WgpuRayTracingPipeline.into(),
+                }))
+            }
+        }
         _ => Err(Box::new(Error::UnknownAddressSpace(span))),
     }
 }

@@ -639,7 +639,7 @@ impl crate::AddressSpace {
             | Self::Handle
             | Self::TaskPayload => true,
             Self::Function => false,
-            Self::RayPayload | Self::IncomingRayPayload => unreachable!(),
+            Self::RayPayload | Self::IncomingRayPayload | Self::HitAttribute => unreachable!(),
         }
     }
 
@@ -651,7 +651,10 @@ impl crate::AddressSpace {
             // may end up with "const" even if the binding is read-write,
             // and that should be OK.
             Self::Storage { .. } => true,
-            Self::TaskPayload | Self::RayPayload | Self::IncomingRayPayload => unimplemented!(),
+            Self::TaskPayload
+            | Self::RayPayload
+            | Self::IncomingRayPayload
+            | Self::HitAttribute => unimplemented!(),
             // These should always be read-write.
             Self::Private | Self::WorkGroup => false,
             // These translate to `constant` address space, no need for qualifiers.
@@ -673,6 +676,8 @@ impl crate::AddressSpace {
             Self::WorkGroup => Some("threadgroup"),
             Self::TaskPayload => Some("object_data"),
             Self::IncomingRayPayload => Some("ray_data"),
+            // Metal has no RT-pipeline hit attributes; never actually reached.
+            Self::HitAttribute => Some("ray_data"),
         }
     }
 }
@@ -7016,7 +7021,8 @@ template <typename A>
                         | crate::AddressSpace::Private
                         | crate::AddressSpace::WorkGroup => {}
                         crate::AddressSpace::RayPayload
-                        | crate::AddressSpace::IncomingRayPayload => unimplemented!(),
+                        | crate::AddressSpace::IncomingRayPayload
+                        | crate::AddressSpace::HitAttribute => unimplemented!(),
                     }
                 }
                 if needs_buffer_sizes {

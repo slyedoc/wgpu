@@ -224,9 +224,9 @@ impl super::AddressSpace {
             // TaskPayload isn't always writable, but this is checked for elsewhere,
             // when not using multiple payloads and matching the entry payload is checked.
             crate::AddressSpace::TaskPayload => Sa::LOAD | Sa::STORE,
-            crate::AddressSpace::RayPayload | crate::AddressSpace::IncomingRayPayload => {
-                Sa::LOAD | Sa::STORE
-            }
+            crate::AddressSpace::RayPayload
+            | crate::AddressSpace::IncomingRayPayload
+            | crate::AddressSpace::HitAttribute => Sa::LOAD | Sa::STORE,
         }
     }
 }

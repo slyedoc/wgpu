@@ -390,6 +390,7 @@ pub const fn address_space_str(
             As::TaskPayload => "task_payload",
             As::IncomingRayPayload => "incoming_ray_payload",
             As::RayPayload => "ray_payload",
+            As::HitAttribute => "hit_attribute",
         }),
         None,
     )

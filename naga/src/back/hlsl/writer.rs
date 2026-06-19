@@ -1030,7 +1030,9 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
                 write!(self.out, "ConstantBuffer<")?;
                 "b"
             }
-            crate::AddressSpace::RayPayload | crate::AddressSpace::IncomingRayPayload => {
+            crate::AddressSpace::RayPayload
+            | crate::AddressSpace::IncomingRayPayload
+            | crate::AddressSpace::HitAttribute => {
                 unimplemented!()
             }
         };
@@ -3170,7 +3172,8 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
                                 | crate::AddressSpace::Immediate
                                 | crate::AddressSpace::TaskPayload
                                 | crate::AddressSpace::RayPayload
-                                | crate::AddressSpace::IncomingRayPayload,
+                                | crate::AddressSpace::IncomingRayPayload
+                                | crate::AddressSpace::HitAttribute,
                             )
                             | None => true,
                             Some(crate::AddressSpace::Uniform) => {

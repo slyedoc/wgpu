@@ -191,6 +191,8 @@ pub enum EntryPointError {
     RayPayloadInInvalidStage(crate::ShaderStage),
     #[error("Only the `closest_hit`, `any_hit`, and `miss` shader stages can access a global variable in the `incoming_ray_payload` address space")]
     IncomingRayPayloadInInvalidStage(crate::ShaderStage),
+    #[error("Only the `closest_hit` and `any_hit` shader stages can access a global variable in the `hit_attribute` address space")]
+    HitAttributeInInvalidStage(crate::ShaderStage),
 }
 
 fn storage_usage(access: crate::StorageAccess) -> GlobalUse {
@@ -1094,7 +1096,9 @@ impl super::Validator {
                     false,
                 )
             }
-            crate::AddressSpace::RayPayload | crate::AddressSpace::IncomingRayPayload => {
+            crate::AddressSpace::RayPayload
+            | crate::AddressSpace::IncomingRayPayload
+            | crate::AddressSpace::HitAttribute => {
                 if !self
                     .capabilities
                     .contains(Capabilities::RAY_TRACING_PIPELINE)
@@ -1504,6 +1508,16 @@ impl super::Validator {
                             | crate::ShaderStage::Miss
                     ) {
                         return Err(EntryPointError::IncomingRayPayloadInInvalidStage(ep.stage)
+                            .with_span_handle(var_handle, &module.global_variables));
+                    }
+                    GlobalUse::READ | GlobalUse::QUERY | GlobalUse::WRITE
+                }
+                crate::AddressSpace::HitAttribute => {
+                    if !matches!(
+                        ep.stage,
+                        crate::ShaderStage::AnyHit | crate::ShaderStage::ClosestHit
+                    ) {
+                        return Err(EntryPointError::HitAttributeInInvalidStage(ep.stage)
                             .with_span_handle(var_handle, &module.global_variables));
                     }
                     GlobalUse::READ | GlobalUse::QUERY | GlobalUse::WRITE

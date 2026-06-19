@@ -159,7 +159,9 @@ pub(in crate::back::glsl) const fn glsl_storage_qualifier(
         As::Handle => Some("uniform"),
         As::WorkGroup => Some("shared"),
         As::Immediate => Some("uniform"),
-        As::TaskPayload | As::RayPayload | As::IncomingRayPayload => unreachable!(),
+        As::TaskPayload | As::RayPayload | As::IncomingRayPayload | As::HitAttribute => {
+            unreachable!()
+        }
     }
 }
 

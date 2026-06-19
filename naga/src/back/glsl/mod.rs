@@ -147,7 +147,9 @@ impl crate::AddressSpace {
             | crate::AddressSpace::Immediate
             | crate::AddressSpace::TaskPayload => false,
 
-            crate::AddressSpace::RayPayload | crate::AddressSpace::IncomingRayPayload => {
+            crate::AddressSpace::RayPayload
+            | crate::AddressSpace::IncomingRayPayload
+            | crate::AddressSpace::HitAttribute => {
                 unreachable!()
             }
         }

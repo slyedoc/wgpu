@@ -393,6 +393,12 @@ pub enum AddressSpace {
     /// Each entrypoint may reference only one variable in this scope, as
     /// only one may be passed as a payload.
     IncomingRayPayload,
+    /// Ray tracing hit attributes, read by closest-hit / any-hit shaders.
+    ///
+    /// For built-in triangle intersection the driver fills this with the hit's
+    /// barycentrics (`vec2`); a custom intersection shader writes it. Maps to
+    /// SPIR-V `HitAttributeKHR`.
+    HitAttribute,
 }
 
 /// Built-in inputs and outputs.
