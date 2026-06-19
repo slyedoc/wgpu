@@ -767,6 +767,21 @@ pub fn map_shader_stage(stage: wgt::ShaderStages) -> vk::ShaderStageFlags {
     if stage.contains(wgt::ShaderStages::MESH) {
         flags |= vk::ShaderStageFlags::MESH_EXT;
     }
+    // Ray-tracing pipeline stages — so a bind group built with these is visible
+    // to a (raw) ray-tracing pipeline's shaders (else descriptor access from RT
+    // stages is undefined → device lost).
+    if stage.contains(wgt::ShaderStages::RAY_GENERATION) {
+        flags |= vk::ShaderStageFlags::RAYGEN_KHR;
+    }
+    if stage.contains(wgt::ShaderStages::ANY_HIT) {
+        flags |= vk::ShaderStageFlags::ANY_HIT_KHR;
+    }
+    if stage.contains(wgt::ShaderStages::CLOSEST_HIT) {
+        flags |= vk::ShaderStageFlags::CLOSEST_HIT_KHR;
+    }
+    if stage.contains(wgt::ShaderStages::MISS) {
+        flags |= vk::ShaderStageFlags::MISS_KHR;
+    }
     flags
 }
 
