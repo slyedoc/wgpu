@@ -226,8 +226,13 @@ impl BlockContext<'_> {
     }
 
     fn ser_pointer_id(&self, expr: crate::Handle<crate::Expression>) -> spirv::Word {
+        // hit_object / payload are pointer expressions. Globals and locals are
+        // pre-emitted (not in `cached`), so resolve them the way the general
+        // pointer path does; fall back to `cached` for anything value-like.
         match self.ir_function.expressions[expr] {
             crate::Expression::GlobalVariable(gv) => self.writer.global_variables[gv].access_id,
+            crate::Expression::LocalVariable(var) => self.function.variables[&var].id,
+            crate::Expression::FunctionArgument(index) => self.function.parameter_id(index),
             _ => self.cached[expr],
         }
     }
