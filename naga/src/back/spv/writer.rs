@@ -3858,11 +3858,19 @@ impl Writer {
     ) -> Result<(), Error> {
         self.require_any("NonUniformEXT", &[spirv::Capability::ShaderNonUniform])?;
         // Vulkan requires the descriptor-type-specific non-uniform-indexing
-        // capability for the `NonUniform` decoration to take effect on that
-        // descriptor class (VUID-RuntimeSpirv-NonUniform-06274); `ShaderNonUniform`
-        // alone is insufficient — without this, divergent accesses (e.g. ray
-        // tracing) silently read the wrong descriptor.
-        self.require_any("non-uniform descriptor indexing", &[descriptor_capability])?;
+        // capability for the `NonUniform` decoration to actually take effect on
+        // that descriptor class (VUID-RuntimeSpirv-NonUniform-06274) — without it,
+        // divergent accesses (e.g. ray tracing) silently read the wrong descriptor.
+        // Declare it as a SOFT requirement: emit it when the target permits it, but
+        // fall back to the decoration-only behavior otherwise, so shaders that
+        // relied on the previous (lenient) handling keep compiling.
+        let cap_available = match self.capabilities_available {
+            None => true,
+            Some(ref available) => available.contains(&descriptor_capability),
+        };
+        if cap_available {
+            self.capabilities_used.insert(descriptor_capability);
+        }
         self.use_extension("SPV_EXT_descriptor_indexing");
         self.decorate(id, spirv::Decoration::NonUniform, &[]);
         Ok(())
