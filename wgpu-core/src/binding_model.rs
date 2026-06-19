@@ -1331,6 +1331,14 @@ crate::impl_parent_device!(BindGroup);
 crate::impl_storage_item!(BindGroup);
 crate::impl_trackable!(BindGroup);
 
+impl RawResourceAccess for BindGroup {
+    type DynResource = dyn hal::DynBindGroup;
+
+    fn raw<'a>(&'a self, guard: &'a SnatchGuard) -> Option<&'a Self::DynResource> {
+        self.raw.get(guard).map(|b| b.as_ref())
+    }
+}
+
 #[derive(Clone, Debug, Error)]
 #[non_exhaustive]
 pub enum GetBindGroupLayoutError {

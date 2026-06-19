@@ -18,6 +18,20 @@ static_assertions::assert_impl_all!(BindGroup: Send, Sync);
 crate::cmp::impl_eq_ord_hash_proxy!(BindGroup => .inner);
 
 impl BindGroup {
+    /// Returns the inner hal BindGroup using a callback. The hal bind group will be `None` if the
+    /// backend type argument does not match with this wgpu BindGroup
+    ///
+    /// # Safety
+    ///
+    /// - The raw handle obtained from the hal BindGroup must not be manually destroyed
+    #[cfg(wgpu_core)]
+    pub unsafe fn as_hal<A: hal::Api>(
+        &self,
+    ) -> Option<impl core::ops::Deref<Target = A::BindGroup>> {
+        let bind_group = self.inner.as_core_opt()?;
+        unsafe { bind_group.context.bind_group_as_hal::<A>(bind_group) }
+    }
+
     #[cfg(custom)]
     /// Returns custom implementation of BindGroup (if custom backend and is internally T)
     pub fn as_custom<T: custom::BindGroupInterface>(&self) -> Option<&T> {

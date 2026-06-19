@@ -7,8 +7,8 @@ use crate::{
     device::Device,
     global::Global,
     id::{
-        AdapterId, BlasId, BufferId, CommandEncoderId, DeviceId, QueueId, SurfaceId, TextureId,
-        TextureViewId, TlasId,
+        AdapterId, BindGroupId, BindGroupLayoutId, BlasId, BufferId, CommandEncoderId, DeviceId,
+        QueueId, SurfaceId, TextureId, TextureViewId, TlasId,
     },
     lock::{RankData, RwLockReadGuard},
     resource::RawResourceAccess,
@@ -409,5 +409,36 @@ impl Global {
         let tlas = hub.tlas_s.get(id).get().ok()?;
 
         SnatchableResourceGuard::new(tlas)
+    }
+
+    /// # Safety
+    ///
+    /// - The raw bind group handle must not be manually destroyed
+    pub unsafe fn bind_group_as_hal<A: hal::Api>(
+        &self,
+        id: BindGroupId,
+    ) -> Option<impl Deref<Target = A::BindGroup>> {
+        profiling::scope!("BindGroup::as_hal");
+
+        let hub = &self.hub;
+
+        let bind_group = hub.bind_groups.get(id).get().ok()?;
+
+        SnatchableResourceGuard::new(bind_group)
+    }
+
+    /// # Safety
+    ///
+    /// - The raw bind group layout handle must not be manually destroyed
+    pub unsafe fn bind_group_layout_as_hal<A: hal::Api>(
+        &self,
+        id: BindGroupLayoutId,
+    ) -> Option<impl Deref<Target = A::BindGroupLayout>> {
+        profiling::scope!("BindGroupLayout::as_hal");
+
+        let hub = &self.hub;
+        let layout = hub.bind_group_layouts.get(id).get().ok()?;
+
+        SimpleResourceGuard::new(layout, move |layout| layout.raw().as_any().downcast_ref())
     }
 }

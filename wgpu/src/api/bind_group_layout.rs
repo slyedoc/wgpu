@@ -21,6 +21,20 @@ static_assertions::assert_impl_all!(BindGroupLayout: Send, Sync);
 crate::cmp::impl_eq_ord_hash_proxy!(BindGroupLayout => .inner);
 
 impl BindGroupLayout {
+    /// Returns the inner hal BindGroupLayout using a callback. The hal layout will be `None` if the
+    /// backend type argument does not match with this wgpu BindGroupLayout.
+    ///
+    /// # Safety
+    ///
+    /// - The raw handle obtained from the hal BindGroupLayout must not be manually destroyed
+    #[cfg(wgpu_core)]
+    pub unsafe fn as_hal<A: hal::Api>(
+        &self,
+    ) -> Option<impl core::ops::Deref<Target = A::BindGroupLayout>> {
+        let layout = self.inner.as_core_opt()?;
+        unsafe { layout.context.bind_group_layout_as_hal::<A>(layout) }
+    }
+
     #[cfg(custom)]
     /// Returns custom implementation of BindGroupLayout (if custom backend and is internally T)
     pub fn as_custom<T: custom::BindGroupLayoutInterface>(&self) -> Option<&T> {

@@ -255,6 +255,20 @@ impl ContextWgpuCore {
         unsafe { self.0.tlas_as_hal::<A>(tlas.id) }
     }
 
+    pub unsafe fn bind_group_as_hal<A: hal::Api>(
+        &self,
+        bind_group: &CoreBindGroup,
+    ) -> Option<impl Deref<Target = A::BindGroup>> {
+        unsafe { self.0.bind_group_as_hal::<A>(bind_group.id) }
+    }
+
+    pub unsafe fn bind_group_layout_as_hal<A: hal::Api>(
+        &self,
+        bind_group_layout: &CoreBindGroupLayout,
+    ) -> Option<impl Deref<Target = A::BindGroupLayout>> {
+        unsafe { self.0.bind_group_layout_as_hal::<A>(bind_group_layout.id) }
+    }
+
     pub fn generate_report(&self) -> wgc::global::GlobalReport {
         self.0.generate_report()
     }
