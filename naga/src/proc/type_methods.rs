@@ -264,6 +264,7 @@ impl crate::TypeInner {
             | Self::Sampler { .. }
             | Self::AccelerationStructure { .. }
             | Self::RayQuery { .. }
+            | Self::HitObject
             | Self::BindingArray { .. } => Some(0),
         }
     }
@@ -389,6 +390,7 @@ impl crate::TypeInner {
             | Ti::Vector { .. }
             | Ti::Matrix { .. }
             | Ti::RayQuery { .. }
+            | Ti::HitObject
             | Ti::CooperativeMatrix { .. } => true,
         }
     }
@@ -441,6 +443,7 @@ impl crate::TypeInner {
             | crate::TypeInner::Sampler { .. }
             | crate::TypeInner::AccelerationStructure { .. }
             | crate::TypeInner::RayQuery { .. }
+            | crate::TypeInner::HitObject
             | crate::TypeInner::BindingArray { .. } => None,
         }
     }
@@ -464,6 +467,7 @@ impl crate::TypeInner {
             | crate::TypeInner::Sampler { .. }
             | crate::TypeInner::AccelerationStructure { .. }
             | crate::TypeInner::RayQuery { .. }
+            | crate::TypeInner::HitObject
             | crate::TypeInner::BindingArray { .. } => false,
         }
     }

@@ -350,6 +350,12 @@ impl super::Instruction {
         instruction
     }
 
+    pub(super) fn type_hit_object(id: Word) -> Self {
+        let mut instruction = Self::new(Op::TypeHitObjectNV);
+        instruction.set_result(id);
+        instruction
+    }
+
     pub(super) fn type_sampled_image(id: Word, image_type_id: Word) -> Self {
         let mut instruction = Self::new(Op::TypeSampledImage);
         instruction.set_result(id);
@@ -894,6 +900,52 @@ impl super::Instruction {
         instruction.add_operand(ray_tmin);
         instruction.add_operand(ray_dir);
         instruction.add_operand(ray_tmax);
+        instruction.add_operand(payload);
+        instruction
+    }
+
+    // Shader Execution Reordering (SPV_NV_shader_invocation_reorder)
+
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn hit_object_trace_ray(
+        hit_object: Word,
+        acceleration_structure: Word,
+        ray_flags: Word,
+        cull_mask: Word,
+        sbt_offset: Word,
+        sbt_stride: Word,
+        miss_idx: Word,
+        ray_origin: Word,
+        ray_tmin: Word,
+        ray_dir: Word,
+        ray_tmax: Word,
+        payload: Word,
+    ) -> Self {
+        let mut instruction = Self::new(Op::HitObjectTraceRayNV);
+        instruction.add_operand(hit_object);
+        instruction.add_operand(acceleration_structure);
+        instruction.add_operand(ray_flags);
+        instruction.add_operand(cull_mask);
+        instruction.add_operand(sbt_offset);
+        instruction.add_operand(sbt_stride);
+        instruction.add_operand(miss_idx);
+        instruction.add_operand(ray_origin);
+        instruction.add_operand(ray_tmin);
+        instruction.add_operand(ray_dir);
+        instruction.add_operand(ray_tmax);
+        instruction.add_operand(payload);
+        instruction
+    }
+
+    pub(super) fn reorder_thread_with_hit_object(hit_object: Word) -> Self {
+        let mut instruction = Self::new(Op::ReorderThreadWithHitObjectNV);
+        instruction.add_operand(hit_object);
+        instruction
+    }
+
+    pub(super) fn hit_object_execute_shader(hit_object: Word, payload: Word) -> Self {
+        let mut instruction = Self::new(Op::HitObjectExecuteShaderNV);
+        instruction.add_operand(hit_object);
         instruction.add_operand(payload);
         instruction
     }

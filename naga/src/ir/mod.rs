@@ -1009,6 +1009,14 @@ pub enum TypeInner {
     /// Locally used handle for ray queries.
     RayQuery { vertex_return: bool },
 
+    /// Opaque hit-object handle for Shader Execution Reordering (SER).
+    ///
+    /// Produced by `hitObjectTraceRay` (which records a hit without invoking its
+    /// shader), consumed by `reorderThread` (to regroup invocations by hit) and
+    /// `hitObjectExecuteShader` (to invoke the recorded hit/miss shader). Maps to
+    /// SPIR-V `OpTypeHitObjectNV` (`SPV_NV_shader_invocation_reorder`).
+    HitObject,
+
     /// Array of bindings.
     ///
     /// A `BindingArray` represents an array where each element draws its value
@@ -2795,6 +2803,44 @@ pub enum RayPipelineFunction {
         payload: Handle<Expression>,
         // Do we want miss index? What about sbt offset and sbt stride (could be hard to validate)?
         // https://github.com/gfx-rs/wgpu/issues/8894
+    },
+
+    /// Shader Execution Reordering: trace a ray and **record** the hit into a
+    /// [`HitObject`] without invoking its shader. Pairs with [`ReorderThread`]
+    /// and [`HitObjectExecuteShader`]. Maps to `OpHitObjectTraceRayNV`.
+    ///
+    /// [`HitObject`]: TypeInner::HitObject
+    /// [`ReorderThread`]: RayPipelineFunction::ReorderThread
+    /// [`HitObjectExecuteShader`]: RayPipelineFunction::HitObjectExecuteShader
+    HitObjectTraceRay {
+        /// Pointer to the [`HitObject`](TypeInner::HitObject) to record into.
+        hit_object: Handle<Expression>,
+        /// The acceleration structure to trace (an [`AccelerationStructure`]).
+        ///
+        /// [`AccelerationStructure`]: TypeInner::AccelerationStructure
+        acceleration_structure: Handle<Expression>,
+        /// `RayDesc` parameters, as for [`TraceRay`](RayPipelineFunction::TraceRay).
+        descriptor: Handle<Expression>,
+        /// Pointer in the ray_payload / incoming_ray_payload address space.
+        payload: Handle<Expression>,
+    },
+
+    /// Shader Execution Reordering: regroup this invocation with others that
+    /// recorded a coherent hit, improving shading coherence. Maps to
+    /// `OpReorderThreadWithHitObjectNV`.
+    ReorderThread {
+        /// Pointer to the [`HitObject`](TypeInner::HitObject) to reorder by.
+        hit_object: Handle<Expression>,
+    },
+
+    /// Shader Execution Reordering: invoke the closest-hit/miss shader the
+    /// [`HitObject`](TypeInner::HitObject) recorded. Maps to
+    /// `OpHitObjectExecuteShaderNV`.
+    HitObjectExecuteShader {
+        /// Pointer to the recorded [`HitObject`](TypeInner::HitObject).
+        hit_object: Handle<Expression>,
+        /// Pointer in the ray_payload / incoming_ray_payload address space.
+        payload: Handle<Expression>,
     },
 }
 

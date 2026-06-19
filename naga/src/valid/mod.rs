@@ -529,6 +529,7 @@ impl crate::TypeInner {
             | Self::Sampler { .. }
             | Self::AccelerationStructure { .. }
             | Self::RayQuery { .. }
+            | Self::HitObject
             | Self::BindingArray { .. } => false,
         }
     }

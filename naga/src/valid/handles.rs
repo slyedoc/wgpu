@@ -401,7 +401,8 @@ impl super::Validator {
             | crate::TypeInner::Image { .. }
             | crate::TypeInner::Sampler { .. }
             | crate::TypeInner::AccelerationStructure { .. }
-            | crate::TypeInner::RayQuery { .. } => None,
+            | crate::TypeInner::RayQuery { .. }
+            | crate::TypeInner::HitObject => None,
             crate::TypeInner::Pointer { base, space: _ } => {
                 handle.check_dep(base)?;
                 None
@@ -872,6 +873,27 @@ impl super::Validator {
                 } => {
                     validate_expr(acceleration_structure)?;
                     validate_expr(descriptor)?;
+                    validate_expr(payload)?;
+                    Ok(())
+                }
+                crate::RayPipelineFunction::HitObjectTraceRay {
+                    hit_object,
+                    acceleration_structure,
+                    descriptor,
+                    payload,
+                } => {
+                    validate_expr(hit_object)?;
+                    validate_expr(acceleration_structure)?;
+                    validate_expr(descriptor)?;
+                    validate_expr(payload)?;
+                    Ok(())
+                }
+                crate::RayPipelineFunction::ReorderThread { hit_object } => {
+                    validate_expr(hit_object)?;
+                    Ok(())
+                }
+                crate::RayPipelineFunction::HitObjectExecuteShader { hit_object, payload } => {
+                    validate_expr(hit_object)?;
                     validate_expr(payload)?;
                     Ok(())
                 }

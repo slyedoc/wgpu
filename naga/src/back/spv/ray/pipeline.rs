@@ -152,6 +152,80 @@ impl BlockContext<'_> {
                     &[acc_struct_id, desc_id],
                 ));
             }
+            crate::RayPipelineFunction::HitObjectTraceRay {
+                hit_object,
+                acceleration_structure,
+                descriptor,
+                payload,
+            } => {
+                self.writer.require_shader_invocation_reorder();
+                let hit_object_id = self.hit_object_access_id(hit_object);
+                let payload_id = self.payload_access_id(payload);
+                let acc_struct_id = self.get_handle_id(acceleration_structure);
+                let desc_id = self.cached[descriptor];
+
+                // SER records the hit inline (no validation branch — the
+                // hitObject path is opt-in and the SBT is built by the host).
+                let super::ExtractedRayDesc {
+                    ray_flags_id,
+                    cull_mask_id,
+                    tmin_id,
+                    tmax_id,
+                    ray_origin_id,
+                    ray_dir_id,
+                    valid_id: _,
+                } = self.writer.write_extract_ray_desc(block, desc_id, false);
+                let zero = self.writer.get_constant_scalar(crate::Literal::U32(0));
+                block.body.push(Instruction::hit_object_trace_ray(
+                    hit_object_id,
+                    acc_struct_id,
+                    ray_flags_id,
+                    cull_mask_id,
+                    zero,
+                    zero,
+                    zero,
+                    ray_origin_id,
+                    tmin_id,
+                    ray_dir_id,
+                    tmax_id,
+                    payload_id,
+                ));
+            }
+            crate::RayPipelineFunction::ReorderThread { hit_object } => {
+                self.writer.require_shader_invocation_reorder();
+                let hit_object_id = self.hit_object_access_id(hit_object);
+                block
+                    .body
+                    .push(Instruction::reorder_thread_with_hit_object(hit_object_id));
+            }
+            crate::RayPipelineFunction::HitObjectExecuteShader {
+                hit_object,
+                payload,
+            } => {
+                self.writer.require_shader_invocation_reorder();
+                let hit_object_id = self.hit_object_access_id(hit_object);
+                let payload_id = self.payload_access_id(payload);
+                block.body.push(Instruction::hit_object_execute_shader(
+                    hit_object_id,
+                    payload_id,
+                ));
+            }
         }
+    }
+
+    /// Resolve a `hit_object` / `payload` expression (a direct global-variable
+    /// reference, as the validator requires) to its SPIR-V access id.
+    fn payload_access_id(&self, expr: crate::Handle<crate::Expression>) -> spirv::Word {
+        let crate::Expression::GlobalVariable(gv) = self.ir_function.expressions[expr] else {
+            unreachable!("SER payload must be a global variable")
+        };
+        self.writer.global_variables[gv].access_id
+    }
+
+    fn hit_object_access_id(&self, expr: crate::Handle<crate::Expression>) -> spirv::Word {
+        let crate::Expression::GlobalVariable(gv) = self.ir_function.expressions[expr] else {
+            unreachable!("SER hit_object must be a global variable")
+        };
+        self.writer.global_variables[gv].access_id
     }
 }

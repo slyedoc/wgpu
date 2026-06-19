@@ -925,6 +925,13 @@ impl super::Validator {
                     Alignment::ONE,
                 )
             }
+            Ti::HitObject => {
+                self.require_type_capability(Capabilities::RAY_TRACING_PIPELINE)?;
+                TypeInfo::new(
+                    TypeFlags::DATA | TypeFlags::SIZED | TypeFlags::CREATION_RESOLVED,
+                    Alignment::ONE,
+                )
+            }
             Ti::BindingArray { base, size } => {
                 let type_info_mask = match size {
                     crate::ArraySize::Constant(_) => {

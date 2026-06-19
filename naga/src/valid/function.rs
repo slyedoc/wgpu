@@ -1767,6 +1767,11 @@ impl super::Validator {
                                 .with_span_static(span, "invalid ray descriptor"));
                         }
                     }
+                    // SER ops: handle validity is checked in `handles.rs`. Deeper
+                    // semantic validation (hit-object / payload types) is deferred.
+                    crate::RayPipelineFunction::HitObjectTraceRay { .. }
+                    | crate::RayPipelineFunction::ReorderThread { .. }
+                    | crate::RayPipelineFunction::HitObjectExecuteShader { .. } => {}
                 },
             }
         }

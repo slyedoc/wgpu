@@ -167,6 +167,27 @@ impl FunctionTracer<'_> {
                             self.expressions_used.insert(descriptor);
                             self.expressions_used.insert(payload);
                         }
+                        crate::RayPipelineFunction::HitObjectTraceRay {
+                            hit_object,
+                            acceleration_structure,
+                            descriptor,
+                            payload,
+                        } => {
+                            self.expressions_used.insert(hit_object);
+                            self.expressions_used.insert(acceleration_structure);
+                            self.expressions_used.insert(descriptor);
+                            self.expressions_used.insert(payload);
+                        }
+                        crate::RayPipelineFunction::ReorderThread { hit_object } => {
+                            self.expressions_used.insert(hit_object);
+                        }
+                        crate::RayPipelineFunction::HitObjectExecuteShader {
+                            hit_object,
+                            payload,
+                        } => {
+                            self.expressions_used.insert(hit_object);
+                            self.expressions_used.insert(payload);
+                        }
                     },
 
                     // Trivial statements.
@@ -403,6 +424,27 @@ impl FunctionMap {
                         } => {
                             adjust(acceleration_structure);
                             adjust(descriptor);
+                            adjust(payload);
+                        }
+                        crate::RayPipelineFunction::HitObjectTraceRay {
+                            ref mut hit_object,
+                            ref mut acceleration_structure,
+                            ref mut descriptor,
+                            ref mut payload,
+                        } => {
+                            adjust(hit_object);
+                            adjust(acceleration_structure);
+                            adjust(descriptor);
+                            adjust(payload);
+                        }
+                        crate::RayPipelineFunction::ReorderThread { ref mut hit_object } => {
+                            adjust(hit_object);
+                        }
+                        crate::RayPipelineFunction::HitObjectExecuteShader {
+                            ref mut hit_object,
+                            ref mut payload,
+                        } => {
+                            adjust(hit_object);
                             adjust(payload);
                         }
                     },

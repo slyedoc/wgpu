@@ -540,6 +540,7 @@ enum LocalType {
     },
     AccelerationStructure,
     RayQuery,
+    HitObject,
 }
 
 /// A type encountered during SPIR-V generation.

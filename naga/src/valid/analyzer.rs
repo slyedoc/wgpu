@@ -1201,6 +1201,27 @@ impl FunctionInfo {
                             let _ = self.add_ref(descriptor);
                             let _ = self.add_ref(payload);
                         }
+                        crate::RayPipelineFunction::HitObjectTraceRay {
+                            hit_object,
+                            acceleration_structure,
+                            descriptor,
+                            payload,
+                        } => {
+                            let _ = self.add_ref(hit_object);
+                            let _ = self.add_ref(acceleration_structure);
+                            let _ = self.add_ref(descriptor);
+                            let _ = self.add_ref(payload);
+                        }
+                        crate::RayPipelineFunction::ReorderThread { hit_object } => {
+                            let _ = self.add_ref(hit_object);
+                        }
+                        crate::RayPipelineFunction::HitObjectExecuteShader {
+                            hit_object,
+                            payload,
+                        } => {
+                            let _ = self.add_ref(hit_object);
+                            let _ = self.add_ref(payload);
+                        }
                     }
                     FunctionUniformity::new()
                 }

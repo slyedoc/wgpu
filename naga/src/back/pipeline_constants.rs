@@ -920,6 +920,27 @@ fn adjust_stmt(new_pos: &HandleVec<Expression, Handle<Expression>>, stmt: &mut S
                 adjust(descriptor);
                 adjust(payload);
             }
+            crate::RayPipelineFunction::HitObjectTraceRay {
+                ref mut hit_object,
+                ref mut acceleration_structure,
+                ref mut descriptor,
+                ref mut payload,
+            } => {
+                adjust(hit_object);
+                adjust(acceleration_structure);
+                adjust(descriptor);
+                adjust(payload);
+            }
+            crate::RayPipelineFunction::ReorderThread { ref mut hit_object } => {
+                adjust(hit_object);
+            }
+            crate::RayPipelineFunction::HitObjectExecuteShader {
+                ref mut hit_object,
+                ref mut payload,
+            } => {
+                adjust(hit_object);
+                adjust(payload);
+            }
         },
         Statement::Break
         | Statement::Continue

@@ -305,6 +305,14 @@ impl Writer {
         self.extensions_used.insert(extension);
     }
 
+    /// Require Shader Execution Reordering (SER) — the capability + extension for
+    /// `hitObject*` / `reorderThread`.
+    pub(super) fn require_shader_invocation_reorder(&mut self) {
+        self.capabilities_used
+            .insert(spirv::Capability::ShaderInvocationReorderNV);
+        self.use_extension("SPV_NV_shader_invocation_reorder");
+    }
+
     pub(super) fn get_type_id(&mut self, lookup_ty: LookupType) -> Word {
         match self.lookup_type.entry(lookup_ty) {
             Entry::Occupied(e) => *e.get(),
@@ -511,6 +519,7 @@ impl Writer {
             crate::TypeInner::Sampler { comparison: _ } => LocalType::Sampler,
             crate::TypeInner::AccelerationStructure { .. } => LocalType::AccelerationStructure,
             crate::TypeInner::RayQuery { .. } => LocalType::RayQuery,
+            crate::TypeInner::HitObject => LocalType::HitObject,
             crate::TypeInner::Array { .. }
             | crate::TypeInner::Struct { .. }
             | crate::TypeInner::BindingArray { .. } => return None,
@@ -2092,6 +2101,7 @@ impl Writer {
             }
             LocalType::AccelerationStructure => Instruction::type_acceleration_structure(id),
             LocalType::RayQuery => Instruction::type_ray_query(id),
+            LocalType::HitObject => Instruction::type_hit_object(id),
         };
 
         instruction.to_words(&mut self.logical_layout.declarations);
@@ -2197,7 +2207,8 @@ impl Writer {
                 | crate::TypeInner::Image { .. }
                 | crate::TypeInner::Sampler { .. }
                 | crate::TypeInner::AccelerationStructure { .. }
-                | crate::TypeInner::RayQuery { .. } => unreachable!(),
+                | crate::TypeInner::RayQuery { .. }
+                | crate::TypeInner::HitObject => unreachable!(),
             };
 
             instruction.to_words(&mut self.logical_layout.declarations);

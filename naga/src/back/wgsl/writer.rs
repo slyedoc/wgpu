@@ -1190,6 +1190,37 @@ impl<W: Write> Writer<W> {
                     self.write_expr(module, payload, func_ctx)?;
                     writeln!(self.out, ");")?
                 }
+                crate::RayPipelineFunction::HitObjectTraceRay {
+                    hit_object,
+                    acceleration_structure,
+                    descriptor,
+                    payload,
+                } => {
+                    write!(self.out, "{level}hitObjectTraceRay(")?;
+                    self.write_expr(module, hit_object, func_ctx)?;
+                    write!(self.out, ", ")?;
+                    self.write_expr(module, acceleration_structure, func_ctx)?;
+                    write!(self.out, ", ")?;
+                    self.write_expr(module, descriptor, func_ctx)?;
+                    write!(self.out, ", ")?;
+                    self.write_expr(module, payload, func_ctx)?;
+                    writeln!(self.out, ");")?
+                }
+                crate::RayPipelineFunction::ReorderThread { hit_object } => {
+                    write!(self.out, "{level}reorderThread(")?;
+                    self.write_expr(module, hit_object, func_ctx)?;
+                    writeln!(self.out, ");")?
+                }
+                crate::RayPipelineFunction::HitObjectExecuteShader {
+                    hit_object,
+                    payload,
+                } => {
+                    write!(self.out, "{level}hitObjectExecuteShader(")?;
+                    self.write_expr(module, hit_object, func_ctx)?;
+                    write!(self.out, ", ")?;
+                    self.write_expr(module, payload, func_ctx)?;
+                    writeln!(self.out, ");")?
+                }
             },
         }
 
