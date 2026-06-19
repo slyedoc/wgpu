@@ -639,7 +639,10 @@ impl crate::AddressSpace {
             | Self::Handle
             | Self::TaskPayload => true,
             Self::Function => false,
-            Self::RayPayload | Self::IncomingRayPayload | Self::HitAttribute => unreachable!(),
+            Self::RayPayload
+            | Self::IncomingRayPayload
+            | Self::HitAttribute
+            | Self::ShaderRecordBuffer => unreachable!(),
         }
     }
 
@@ -654,7 +657,8 @@ impl crate::AddressSpace {
             Self::TaskPayload
             | Self::RayPayload
             | Self::IncomingRayPayload
-            | Self::HitAttribute => unimplemented!(),
+            | Self::HitAttribute
+            | Self::ShaderRecordBuffer => unimplemented!(),
             // These should always be read-write.
             Self::Private | Self::WorkGroup => false,
             // These translate to `constant` address space, no need for qualifiers.
@@ -678,6 +682,8 @@ impl crate::AddressSpace {
             Self::IncomingRayPayload => Some("ray_data"),
             // Metal has no RT-pipeline hit attributes; never actually reached.
             Self::HitAttribute => Some("ray_data"),
+            // Metal has no RT-pipeline shader-record buffer; never actually reached.
+            Self::ShaderRecordBuffer => None,
         }
     }
 }
@@ -7022,7 +7028,8 @@ template <typename A>
                         | crate::AddressSpace::WorkGroup => {}
                         crate::AddressSpace::RayPayload
                         | crate::AddressSpace::IncomingRayPayload
-                        | crate::AddressSpace::HitAttribute => unimplemented!(),
+                        | crate::AddressSpace::HitAttribute
+                        | crate::AddressSpace::ShaderRecordBuffer => unimplemented!(),
                     }
                 }
                 if needs_buffer_sizes {

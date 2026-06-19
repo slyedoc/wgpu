@@ -54,6 +54,16 @@ pub fn map_address_space<'a>(
                 }))
             }
         }
+        "shader_record" => {
+            if enable_extensions.contains(ImplementedEnableExtension::WgpuRayTracingPipeline) {
+                Ok(crate::AddressSpace::ShaderRecordBuffer)
+            } else {
+                Err(Box::new(Error::EnableExtensionNotEnabled {
+                    span,
+                    kind: ImplementedEnableExtension::WgpuRayTracingPipeline.into(),
+                }))
+            }
+        }
         _ => Err(Box::new(Error::UnknownAddressSpace(span))),
     }
 }

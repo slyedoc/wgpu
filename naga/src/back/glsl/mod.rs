@@ -149,7 +149,8 @@ impl crate::AddressSpace {
 
             crate::AddressSpace::RayPayload
             | crate::AddressSpace::IncomingRayPayload
-            | crate::AddressSpace::HitAttribute => {
+            | crate::AddressSpace::HitAttribute
+            | crate::AddressSpace::ShaderRecordBuffer => {
                 unreachable!()
             }
         }

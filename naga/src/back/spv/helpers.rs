@@ -63,6 +63,7 @@ pub(super) const fn map_storage_class(space: crate::AddressSpace) -> spirv::Stor
         crate::AddressSpace::RayPayload => spirv::StorageClass::RayPayloadKHR,
         crate::AddressSpace::IncomingRayPayload => spirv::StorageClass::IncomingRayPayloadKHR,
         crate::AddressSpace::HitAttribute => spirv::StorageClass::HitAttributeKHR,
+        crate::AddressSpace::ShaderRecordBuffer => spirv::StorageClass::ShaderRecordBufferKHR,
     }
 }
 
@@ -106,7 +107,8 @@ pub fn global_needs_wrapper(ir_module: &crate::Module, var: &crate::GlobalVariab
     match var.space {
         crate::AddressSpace::Uniform
         | crate::AddressSpace::Storage { .. }
-        | crate::AddressSpace::Immediate => {}
+        | crate::AddressSpace::Immediate
+        | crate::AddressSpace::ShaderRecordBuffer => {}
         _ => return false,
     };
     match ir_module.types[var.ty].inner {

@@ -399,6 +399,14 @@ pub enum AddressSpace {
     /// barycentrics (`vec2`); a custom intersection shader writes it. Maps to
     /// SPIR-V `HitAttributeKHR`.
     HitAttribute,
+    /// Ray tracing shader-record buffer: the per-record data stored inline in the
+    /// shader binding table after each group handle, read by the shader the record
+    /// selects (raygen / miss / closest-hit / any-hit / intersection / callable).
+    ///
+    /// A read-only buffer block (laid out like `Storage`), but with no descriptor
+    /// set/binding — it is addressed by the SBT, not a descriptor. Its contents are
+    /// uniform within a shader-group dispatch. Maps to SPIR-V `ShaderRecordBufferKHR`.
+    ShaderRecordBuffer,
 }
 
 /// Built-in inputs and outputs.

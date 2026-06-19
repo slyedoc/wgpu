@@ -227,6 +227,8 @@ impl super::AddressSpace {
             crate::AddressSpace::RayPayload
             | crate::AddressSpace::IncomingRayPayload
             | crate::AddressSpace::HitAttribute => Sa::LOAD | Sa::STORE,
+            // The shader-record buffer is filled by the SBT; shaders only read it.
+            crate::AddressSpace::ShaderRecordBuffer => Sa::LOAD,
         }
     }
 }

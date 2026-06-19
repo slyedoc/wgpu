@@ -661,8 +661,9 @@ impl FunctionInfo {
                     // workgroup memory is exclusively accessed by the group
                     // task payload memory is very similar to workgroup memory
                     As::WorkGroup | As::TaskPayload => true,
-                    // uniform data
-                    As::Uniform | As::Immediate => true,
+                    // uniform data — shader-record contents are constant across a
+                    // shader-group dispatch.
+                    As::Uniform | As::Immediate | As::ShaderRecordBuffer => true,
                     // storage data is only uniform when read-only
                     As::Storage { access } => !access.contains(crate::StorageAccess::STORE),
                     As::Handle => false,

@@ -745,7 +745,8 @@ impl<'a, W: Write> Writer<'a, W> {
             // ray tracing pipelines unsupported
             crate::AddressSpace::RayPayload
             | crate::AddressSpace::IncomingRayPayload
-            | crate::AddressSpace::HitAttribute => {
+            | crate::AddressSpace::HitAttribute
+            | crate::AddressSpace::ShaderRecordBuffer => {
                 unreachable!()
             }
         }

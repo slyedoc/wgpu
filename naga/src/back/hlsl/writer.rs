@@ -1032,7 +1032,8 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
             }
             crate::AddressSpace::RayPayload
             | crate::AddressSpace::IncomingRayPayload
-            | crate::AddressSpace::HitAttribute => {
+            | crate::AddressSpace::HitAttribute
+            | crate::AddressSpace::ShaderRecordBuffer => {
                 unimplemented!()
             }
         };
@@ -3173,7 +3174,8 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
                                 | crate::AddressSpace::TaskPayload
                                 | crate::AddressSpace::RayPayload
                                 | crate::AddressSpace::IncomingRayPayload
-                                | crate::AddressSpace::HitAttribute,
+                                | crate::AddressSpace::HitAttribute
+                                | crate::AddressSpace::ShaderRecordBuffer,
                             )
                             | None => true,
                             Some(crate::AddressSpace::Uniform) => {

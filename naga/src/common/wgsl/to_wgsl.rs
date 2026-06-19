@@ -392,6 +392,7 @@ pub const fn address_space_str(
             As::IncomingRayPayload => "incoming_ray_payload",
             As::RayPayload => "ray_payload",
             As::HitAttribute => "hit_attribute",
+            As::ShaderRecordBuffer => "shader_record",
         }),
         None,
     )

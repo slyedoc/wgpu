@@ -193,6 +193,8 @@ pub enum EntryPointError {
     IncomingRayPayloadInInvalidStage(crate::ShaderStage),
     #[error("Only the `closest_hit` and `any_hit` shader stages can access a global variable in the `hit_attribute` address space")]
     HitAttributeInInvalidStage(crate::ShaderStage),
+    #[error("Only ray tracing pipeline shader stages can access a global variable in the `shader_record` address space")]
+    ShaderRecordBufferInInvalidStage(crate::ShaderStage),
 }
 
 fn storage_usage(access: crate::StorageAccess) -> GlobalUse {
@@ -1122,6 +1124,31 @@ impl super::Validator {
                 }
                 (TypeFlags::DATA | TypeFlags::SIZED, false)
             }
+            crate::AddressSpace::ShaderRecordBuffer => {
+                if !self
+                    .capabilities
+                    .contains(Capabilities::RAY_TRACING_PIPELINE)
+                {
+                    return Err(GlobalVariableError::UnsupportedCapability(
+                        Capabilities::RAY_TRACING_PIPELINE,
+                    ));
+                }
+                // A read-only buffer block laid out like storage, but addressed by
+                // the SBT rather than a descriptor — so it is NOT a bound resource.
+                if let Err((ty_handle, disalignment)) = type_info.storage_layout {
+                    if self.flags.contains(super::ValidationFlags::STRUCT_LAYOUTS) {
+                        return Err(GlobalVariableError::Alignment(
+                            var.space,
+                            ty_handle,
+                            disalignment,
+                        ));
+                    }
+                }
+                (
+                    TypeFlags::DATA | TypeFlags::HOST_SHAREABLE | TypeFlags::CREATION_RESOLVED,
+                    false,
+                )
+            }
         };
 
         if !type_info.flags.contains(required_type_flags) {
@@ -1534,6 +1561,19 @@ impl super::Validator {
                             .with_span_handle(var_handle, &module.global_variables));
                     }
                     GlobalUse::READ | GlobalUse::QUERY | GlobalUse::WRITE
+                }
+                crate::AddressSpace::ShaderRecordBuffer => {
+                    if !matches!(
+                        ep.stage,
+                        crate::ShaderStage::RayGeneration
+                            | crate::ShaderStage::ClosestHit
+                            | crate::ShaderStage::AnyHit
+                            | crate::ShaderStage::Miss
+                    ) {
+                        return Err(EntryPointError::ShaderRecordBufferInInvalidStage(ep.stage)
+                            .with_span_handle(var_handle, &module.global_variables));
+                    }
+                    GlobalUse::READ | GlobalUse::QUERY
                 }
             };
             if !allowed_usage.contains(usage) {

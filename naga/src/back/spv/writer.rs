@@ -3328,8 +3328,9 @@ impl Writer {
         let id = self.id_gen.next();
         let class = map_storage_class(global_variable.space);
 
-        if let crate::AddressSpace::RayPayload | crate::AddressSpace::IncomingRayPayload =
-            global_variable.space
+        if let crate::AddressSpace::RayPayload
+        | crate::AddressSpace::IncomingRayPayload
+        | crate::AddressSpace::ShaderRecordBuffer = global_variable.space
         {
             self.require_any("ray tracing pipelines", &[spirv::Capability::RayTracingKHR])?;
         }
