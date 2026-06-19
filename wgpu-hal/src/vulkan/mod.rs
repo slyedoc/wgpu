@@ -879,6 +879,15 @@ pub struct BindGroupLayout {
 
 impl crate::DynBindGroupLayout for BindGroupLayout {}
 
+impl BindGroupLayout {
+    /// The raw `VkDescriptorSetLayout`. For consumers that build a raw pipeline
+    /// (e.g. a ray-tracing pipeline) whose layout must be compatible with wgpu's
+    /// bind groups.
+    pub fn raw_handle(&self) -> vk::DescriptorSetLayout {
+        self.raw
+    }
+}
+
 #[derive(Debug)]
 pub struct PipelineLayout {
     raw: vk::PipelineLayout,
@@ -890,6 +899,14 @@ impl crate::DynPipelineLayout for PipelineLayout {}
 #[derive(Debug)]
 pub struct BindGroup {
     set: gpu_descriptor::DescriptorSet<vk::DescriptorSet>,
+}
+
+impl BindGroup {
+    /// The raw `VkDescriptorSet`. For binding a wgpu-built bind group into a raw
+    /// pipeline (e.g. a ray-tracing pipeline) via `cmd_bind_descriptor_sets`.
+    pub fn raw_descriptor_set(&self) -> vk::DescriptorSet {
+        *self.set.raw()
+    }
 }
 
 impl crate::DynBindGroup for BindGroup {}
