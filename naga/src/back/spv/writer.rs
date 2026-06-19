@@ -3851,8 +3851,18 @@ impl Writer {
         &self.capabilities_used
     }
 
-    pub fn decorate_non_uniform_binding_array_access(&mut self, id: Word) -> Result<(), Error> {
+    pub fn decorate_non_uniform_binding_array_access(
+        &mut self,
+        id: Word,
+        descriptor_capability: spirv::Capability,
+    ) -> Result<(), Error> {
         self.require_any("NonUniformEXT", &[spirv::Capability::ShaderNonUniform])?;
+        // Vulkan requires the descriptor-type-specific non-uniform-indexing
+        // capability for the `NonUniform` decoration to take effect on that
+        // descriptor class (VUID-RuntimeSpirv-NonUniform-06274); `ShaderNonUniform`
+        // alone is insufficient — without this, divergent accesses (e.g. ray
+        // tracing) silently read the wrong descriptor.
+        self.require_any("non-uniform descriptor indexing", &[descriptor_capability])?;
         self.use_extension("SPV_EXT_descriptor_indexing");
         self.decorate(id, spirv::Decoration::NonUniform, &[]);
         Ok(())

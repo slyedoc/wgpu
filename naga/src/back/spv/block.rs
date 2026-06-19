@@ -879,8 +879,10 @@ impl BlockContext<'_> {
                         // if the image/sampler binding array was accessed with a non-uniform index
                         // see VUID-RuntimeSpirv-NonUniform-06274
                         if self.fun_info[index].uniformity.non_uniform_result.is_some() {
-                            self.writer
-                                .decorate_non_uniform_binding_array_access(load_id)?;
+                            self.writer.decorate_non_uniform_binding_array_access(
+                                load_id,
+                                spirv::Capability::SampledImageArrayNonUniformIndexing,
+                            )?;
                         }
 
                         load_id
@@ -2652,8 +2654,10 @@ impl BlockContext<'_> {
         // if the binding array was accessed with a non-uniform index
         // see VUID-RuntimeSpirv-NonUniform-06274
         if is_non_uniform_binding_array {
-            self.writer
-                .decorate_non_uniform_binding_array_access(pointer_id)?;
+            self.writer.decorate_non_uniform_binding_array_access(
+                pointer_id,
+                spirv::Capability::StorageBufferArrayNonUniformIndexing,
+            )?;
         }
 
         Ok(expr_pointer)
