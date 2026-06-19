@@ -497,6 +497,11 @@ pub enum BuiltIn {
     /// Read in closest hit and any hit shaders, the custom data in the tlas
     /// instance
     InstanceCustomData,
+    /// Read in closest hit and any hit shaders, the index of the instance in
+    /// the tlas (SPIR-V `InstanceId`). This is the value `RayIntersection`'s
+    /// `instance_index` field carries for ray queries; distinct from the
+    /// vertex-stage [`InstanceIndex`](Self::InstanceIndex).
+    RayInstanceId,
     /// Read in closest hit and any hit shaders, the index of the geometry in
     /// the blas.
     GeometryIndex,

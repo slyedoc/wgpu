@@ -3231,6 +3231,7 @@ impl Writer {
                     Bi::RayInvocationId => BuiltIn::LaunchIdKHR,
                     Bi::NumRayInvocations => BuiltIn::LaunchSizeKHR,
                     Bi::InstanceCustomData => BuiltIn::InstanceCustomIndexKHR,
+                    Bi::RayInstanceId => BuiltIn::InstanceId,
                     Bi::GeometryIndex => BuiltIn::RayGeometryIndexKHR,
                     Bi::WorldRayOrigin => BuiltIn::WorldRayOriginKHR,
                     Bi::WorldRayDirection => BuiltIn::WorldRayDirectionKHR,

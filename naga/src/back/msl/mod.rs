@@ -727,6 +727,7 @@ impl ResolvedBinding {
                     | Bi::RayInvocationId
                     | Bi::NumRayInvocations
                     | Bi::InstanceCustomData
+                    | Bi::RayInstanceId
                     | Bi::GeometryIndex
                     | Bi::WorldRayOrigin
                     | Bi::WorldRayDirection

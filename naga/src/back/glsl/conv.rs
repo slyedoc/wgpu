@@ -130,6 +130,7 @@ pub(in crate::back::glsl) const fn glsl_built_in(
         | Bi::RayInvocationId
         | Bi::NumRayInvocations
         | Bi::InstanceCustomData
+        | Bi::RayInstanceId
         | Bi::GeometryIndex
         | Bi::WorldRayOrigin
         | Bi::WorldRayDirection
