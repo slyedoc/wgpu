@@ -428,6 +428,34 @@ impl StatementGraph {
                         self.dependencies.push((id, payload, "payload"));
                         "TraceRay"
                     }
+                    crate::RayPipelineFunction::HitObjectTraceRay {
+                        hit_object,
+                        acceleration_structure,
+                        descriptor,
+                        payload,
+                    } => {
+                        self.dependencies.push((id, hit_object, "hit_object"));
+                        self.dependencies.push((
+                            id,
+                            acceleration_structure,
+                            "acceleration_structure",
+                        ));
+                        self.dependencies.push((id, descriptor, "descriptor"));
+                        self.dependencies.push((id, payload, "payload"));
+                        "HitObjectTraceRay"
+                    }
+                    crate::RayPipelineFunction::ReorderThread { hit_object } => {
+                        self.dependencies.push((id, hit_object, "hit_object"));
+                        "ReorderThread"
+                    }
+                    crate::RayPipelineFunction::HitObjectExecuteShader {
+                        hit_object,
+                        payload,
+                    } => {
+                        self.dependencies.push((id, hit_object, "hit_object"));
+                        self.dependencies.push((id, payload, "payload"));
+                        "HitObjectExecuteShader"
+                    }
                 },
             };
             // Set the last node to the merge node

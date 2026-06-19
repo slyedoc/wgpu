@@ -533,6 +533,7 @@ impl<'a, W: Write> Writer<'a, W> {
             | TypeInner::Sampler { .. }
             | TypeInner::AccelerationStructure { .. }
             | TypeInner::RayQuery { .. }
+            | TypeInner::HitObject
             | TypeInner::BindingArray { .. }
             | TypeInner::CooperativeMatrix { .. } => {
                 return Err(Error::Custom(format!("Unable to write type {inner:?}")))

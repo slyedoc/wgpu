@@ -2871,6 +2871,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                         let vertex_return = tl.maybe_vertex_return(ctx)?;
                         ir::TypeInner::RayQuery { vertex_return }
                     }
+                    conv::TypeGenerator::HitObject => ir::TypeInner::HitObject,
                     conv::TypeGenerator::CooperativeMatrix { columns, rows } => {
                         let (ty, span) = tl.ty_with_span(self, ctx)?;
                         let ir::TypeInner::Scalar(scalar) = ctx.module.types[ty].inner else {
@@ -3805,6 +3806,65 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     let fun = ir::RayPipelineFunction::TraceRay {
                         acceleration_structure,
                         descriptor,
+                        payload,
+                    };
+
+                    let rctx = ctx.runtime_expression_ctx(function_span)?;
+                    rctx.block
+                        .extend(rctx.emitter.finish(&rctx.function.expressions));
+                    rctx.emitter.start(&rctx.function.expressions);
+                    rctx.block
+                        .push(ir::Statement::RayPipelineFunction(fun), function_span);
+                    return Ok(None);
+                }
+                // Shader Execution Reordering (SER).
+                "hitObjectTraceRay" => {
+                    let mut args = ctx.prepare_args(arguments, 4, function_span);
+                    let hit_object = self.expression(args.next()?, ctx)?;
+                    let acceleration_structure = self.expression(args.next()?, ctx)?;
+                    let descriptor = self.expression(args.next()?, ctx)?;
+                    let payload = self.expression(args.next()?, ctx)?;
+                    args.finish()?;
+
+                    let _ = ctx.module.generate_ray_desc_type();
+                    let fun = ir::RayPipelineFunction::HitObjectTraceRay {
+                        hit_object,
+                        acceleration_structure,
+                        descriptor,
+                        payload,
+                    };
+
+                    let rctx = ctx.runtime_expression_ctx(function_span)?;
+                    rctx.block
+                        .extend(rctx.emitter.finish(&rctx.function.expressions));
+                    rctx.emitter.start(&rctx.function.expressions);
+                    rctx.block
+                        .push(ir::Statement::RayPipelineFunction(fun), function_span);
+                    return Ok(None);
+                }
+                "reorderThread" => {
+                    let mut args = ctx.prepare_args(arguments, 1, function_span);
+                    let hit_object = self.expression(args.next()?, ctx)?;
+                    args.finish()?;
+
+                    let fun = ir::RayPipelineFunction::ReorderThread { hit_object };
+
+                    let rctx = ctx.runtime_expression_ctx(function_span)?;
+                    rctx.block
+                        .extend(rctx.emitter.finish(&rctx.function.expressions));
+                    rctx.emitter.start(&rctx.function.expressions);
+                    rctx.block
+                        .push(ir::Statement::RayPipelineFunction(fun), function_span);
+                    return Ok(None);
+                }
+                "hitObjectExecuteShader" => {
+                    let mut args = ctx.prepare_args(arguments, 2, function_span);
+                    let hit_object = self.expression(args.next()?, ctx)?;
+                    let payload = self.expression(args.next()?, ctx)?;
+                    args.finish()?;
+
+                    let fun = ir::RayPipelineFunction::HitObjectExecuteShader {
+                        hit_object,
                         payload,
                     };
 

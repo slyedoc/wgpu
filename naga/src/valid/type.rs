@@ -928,7 +928,10 @@ impl super::Validator {
             Ti::HitObject => {
                 self.require_type_capability(Capabilities::RAY_TRACING_PIPELINE)?;
                 TypeInfo::new(
-                    TypeFlags::DATA | TypeFlags::SIZED | TypeFlags::CREATION_RESOLVED,
+                    TypeFlags::DATA
+                        | TypeFlags::CONSTRUCTIBLE
+                        | TypeFlags::SIZED
+                        | TypeFlags::CREATION_RESOLVED,
                     Alignment::ONE,
                 )
             }

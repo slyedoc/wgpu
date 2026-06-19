@@ -414,6 +414,7 @@ pub enum TypeGenerator {
     BindingArray,
     AccelerationStructure,
     RayQuery,
+    HitObject,
     CooperativeMatrix {
         columns: crate::CooperativeSize,
         rows: crate::CooperativeSize,
@@ -548,6 +549,8 @@ pub fn map_predeclared_type(
         "acceleration_structure" => TypeGenerator::AccelerationStructure.into(),
         // ray query
         "ray_query" => TypeGenerator::RayQuery.into(),
+        // shader execution reordering (SER) hit object
+        "hit_object" => TypeGenerator::HitObject.into(),
         // cooperative matrix
         "coop_mat8x8" => TypeGenerator::CooperativeMatrix {
             columns: crate::CooperativeSize::Eight,
@@ -573,6 +576,10 @@ pub fn map_predeclared_type(
             ImplementedEnableExtension::WgpuRayQuery,
             ImplementedEnableExtension::WgpuRayTracingPipeline,
         ]),
+        // SER builds on ray-tracing pipelines.
+        PredeclaredType::TypeGenerator(TypeGenerator::HitObject) => {
+            Some(&[ImplementedEnableExtension::WgpuRayTracingPipeline])
+        }
         PredeclaredType::TypeGenerator(TypeGenerator::CooperativeMatrix { .. }) => {
             Some(&[ImplementedEnableExtension::WgpuCooperativeMatrix])
         }

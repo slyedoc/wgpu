@@ -371,6 +371,9 @@ impl Display for TypeContext<'_> {
                 }
                 write!(out, "{RAY_QUERY_TYPE}")
             }
+            crate::TypeInner::HitObject => {
+                unimplemented!("metal does not support shader execution reordering")
+            }
             crate::TypeInner::BindingArray { base, .. } => {
                 let base_tyname = Self {
                     handle: base,
@@ -695,6 +698,7 @@ impl crate::Type {
             | Ti::Sampler { .. }
             | Ti::AccelerationStructure { .. }
             | Ti::RayQuery { .. }
+            | Ti::HitObject
             | Ti::BindingArray { .. } => false,
         }
     }

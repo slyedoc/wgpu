@@ -213,19 +213,22 @@ impl BlockContext<'_> {
         }
     }
 
-    /// Resolve a `hit_object` / `payload` expression (a direct global-variable
-    /// reference, as the validator requires) to its SPIR-V access id.
+    /// Resolve a `hit_object` / `payload` pointer expression to its SPIR-V id.
+    /// The payload is a global (`ray_payload`); the hit object is typically a
+    /// function-local `var`, so handle both — a global resolves to its
+    /// `access_id`, anything else to its cached pointer id.
     fn payload_access_id(&self, expr: crate::Handle<crate::Expression>) -> spirv::Word {
-        let crate::Expression::GlobalVariable(gv) = self.ir_function.expressions[expr] else {
-            unreachable!("SER payload must be a global variable")
-        };
-        self.writer.global_variables[gv].access_id
+        self.ser_pointer_id(expr)
     }
 
     fn hit_object_access_id(&self, expr: crate::Handle<crate::Expression>) -> spirv::Word {
-        let crate::Expression::GlobalVariable(gv) = self.ir_function.expressions[expr] else {
-            unreachable!("SER hit_object must be a global variable")
-        };
-        self.writer.global_variables[gv].access_id
+        self.ser_pointer_id(expr)
+    }
+
+    fn ser_pointer_id(&self, expr: crate::Handle<crate::Expression>) -> spirv::Word {
+        match self.ir_function.expressions[expr] {
+            crate::Expression::GlobalVariable(gv) => self.writer.global_variables[gv].access_id,
+            _ => self.cached[expr],
+        }
     }
 }

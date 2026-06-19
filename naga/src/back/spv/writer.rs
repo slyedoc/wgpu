@@ -1575,7 +1575,9 @@ impl Writer {
                 id,
                 spirv::StorageClass::Function,
                 init_word.or_else(|| match ir_module.types[variable.ty].inner {
-                    crate::TypeInner::RayQuery { .. } => None,
+                    // Opaque handles (ray query, SER hit object) have no null
+                    // value — leave them uninitialized.
+                    crate::TypeInner::RayQuery { .. } | crate::TypeInner::HitObject => None,
                     _ => {
                         let type_id = context.get_handle_type_id(variable.ty);
                         Some(context.writer.write_constant_null(type_id))
@@ -3645,6 +3647,17 @@ impl Writer {
         if has_ray_tracing_pipeline {
             Instruction::extension("SPV_KHR_ray_tracing")
                 .to_words(&mut self.logical_layout.extensions)
+        }
+        // Shader Execution Reordering (SPV_NV_shader_invocation_reorder) requires
+        // SPIR-V 1.4+.
+        if self
+            .capabilities_used
+            .contains(&spirv::Capability::ShaderInvocationReorderNV)
+        {
+            let lang_version = self.lang_version();
+            if lang_version.0 <= 1 && lang_version.1 < 4 {
+                return Err(Error::SpirvVersionTooLow(1, 4));
+            }
         }
         Instruction::type_void(self.void_type).to_words(&mut self.logical_layout.declarations);
         Instruction::ext_inst_import(self.gl450_ext_inst_id, "GLSL.std.450")
