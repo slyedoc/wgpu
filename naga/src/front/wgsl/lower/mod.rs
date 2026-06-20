@@ -3871,18 +3871,52 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                         MustUse::Yes,
                     )
                 }
+                // Two forms: `traceRay(accel, desc, payload)` (SBT offset/stride/miss
+                // all 0), and the explicit-SBT `traceRay(accel, desc, sbt_offset,
+                // sbt_stride, miss_index, payload)` exposing the full `OpTraceRayKHR`
+                // operands (e.g. a dedicated miss program for shadow rays).
                 "traceRay" => {
-                    let mut args = ctx.prepare_args(arguments, 3, function_span);
-                    let acceleration_structure = self.expression(args.next()?, ctx)?;
-                    let descriptor = self.expression(args.next()?, ctx)?;
-                    let payload = self.expression(args.next()?, ctx)?;
-                    args.finish()?;
+                    let (
+                        acceleration_structure,
+                        descriptor,
+                        sbt_record_offset,
+                        sbt_record_stride,
+                        miss_index,
+                        payload,
+                    ) = if arguments.len() >= 6 {
+                        let mut args = ctx.prepare_args(arguments, 6, function_span);
+                        let acceleration_structure = self.expression(args.next()?, ctx)?;
+                        let descriptor = self.expression(args.next()?, ctx)?;
+                        let sbt_record_offset = self.expression(args.next()?, ctx)?;
+                        let sbt_record_stride = self.expression(args.next()?, ctx)?;
+                        let miss_index = self.expression(args.next()?, ctx)?;
+                        let payload = self.expression(args.next()?, ctx)?;
+                        args.finish()?;
+                        (
+                            acceleration_structure,
+                            descriptor,
+                            Some(sbt_record_offset),
+                            Some(sbt_record_stride),
+                            Some(miss_index),
+                            payload,
+                        )
+                    } else {
+                        let mut args = ctx.prepare_args(arguments, 3, function_span);
+                        let acceleration_structure = self.expression(args.next()?, ctx)?;
+                        let descriptor = self.expression(args.next()?, ctx)?;
+                        let payload = self.expression(args.next()?, ctx)?;
+                        args.finish()?;
+                        (acceleration_structure, descriptor, None, None, None, payload)
+                    };
 
                     let _ = ctx.module.generate_ray_desc_type();
                     let fun = ir::RayPipelineFunction::TraceRay {
                         acceleration_structure,
                         descriptor,
                         payload,
+                        sbt_record_offset,
+                        sbt_record_stride,
+                        miss_index,
                     };
 
                     let rctx = ctx.runtime_expression_ctx(function_span)?;
@@ -3893,14 +3927,45 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                         .push(ir::Statement::RayPipelineFunction(fun), function_span);
                     return Ok(None);
                 }
-                // Shader Execution Reordering (SER).
+                // Shader Execution Reordering (SER). Two forms, mirroring `traceRay`:
+                // 4-arg (SBT 0s) and 7-arg with explicit sbt_offset/stride/miss_index.
                 "hitObjectTraceRay" => {
-                    let mut args = ctx.prepare_args(arguments, 4, function_span);
-                    let hit_object = self.expression(args.next()?, ctx)?;
-                    let acceleration_structure = self.expression(args.next()?, ctx)?;
-                    let descriptor = self.expression(args.next()?, ctx)?;
-                    let payload = self.expression(args.next()?, ctx)?;
-                    args.finish()?;
+                    let (
+                        hit_object,
+                        acceleration_structure,
+                        descriptor,
+                        sbt_record_offset,
+                        sbt_record_stride,
+                        miss_index,
+                        payload,
+                    ) = if arguments.len() >= 7 {
+                        let mut args = ctx.prepare_args(arguments, 7, function_span);
+                        let hit_object = self.expression(args.next()?, ctx)?;
+                        let acceleration_structure = self.expression(args.next()?, ctx)?;
+                        let descriptor = self.expression(args.next()?, ctx)?;
+                        let sbt_record_offset = self.expression(args.next()?, ctx)?;
+                        let sbt_record_stride = self.expression(args.next()?, ctx)?;
+                        let miss_index = self.expression(args.next()?, ctx)?;
+                        let payload = self.expression(args.next()?, ctx)?;
+                        args.finish()?;
+                        (
+                            hit_object,
+                            acceleration_structure,
+                            descriptor,
+                            Some(sbt_record_offset),
+                            Some(sbt_record_stride),
+                            Some(miss_index),
+                            payload,
+                        )
+                    } else {
+                        let mut args = ctx.prepare_args(arguments, 4, function_span);
+                        let hit_object = self.expression(args.next()?, ctx)?;
+                        let acceleration_structure = self.expression(args.next()?, ctx)?;
+                        let descriptor = self.expression(args.next()?, ctx)?;
+                        let payload = self.expression(args.next()?, ctx)?;
+                        args.finish()?;
+                        (hit_object, acceleration_structure, descriptor, None, None, None, payload)
+                    };
 
                     let _ = ctx.module.generate_ray_desc_type();
                     let fun = ir::RayPipelineFunction::HitObjectTraceRay {
@@ -3908,6 +3973,9 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                         acceleration_structure,
                         descriptor,
                         payload,
+                        sbt_record_offset,
+                        sbt_record_stride,
+                        miss_index,
                     };
 
                     let rctx = ctx.runtime_expression_ctx(function_span)?;

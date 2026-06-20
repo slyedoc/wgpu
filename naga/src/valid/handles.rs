@@ -882,10 +882,19 @@ impl super::Validator {
                     acceleration_structure,
                     descriptor,
                     payload,
+                    sbt_record_offset,
+                    sbt_record_stride,
+                    miss_index,
                 } => {
                     validate_expr(acceleration_structure)?;
                     validate_expr(descriptor)?;
                     validate_expr(payload)?;
+                    for h in [sbt_record_offset, sbt_record_stride, miss_index]
+                        .into_iter()
+                        .flatten()
+                    {
+                        validate_expr(h)?;
+                    }
                     Ok(())
                 }
                 crate::RayPipelineFunction::HitObjectTraceRay {
@@ -893,11 +902,20 @@ impl super::Validator {
                     acceleration_structure,
                     descriptor,
                     payload,
+                    sbt_record_offset,
+                    sbt_record_stride,
+                    miss_index,
                 } => {
                     validate_expr(hit_object)?;
                     validate_expr(acceleration_structure)?;
                     validate_expr(descriptor)?;
                     validate_expr(payload)?;
+                    for h in [sbt_record_offset, sbt_record_stride, miss_index]
+                        .into_iter()
+                        .flatten()
+                    {
+                        validate_expr(h)?;
+                    }
                     Ok(())
                 }
                 crate::RayPipelineFunction::ReorderThread {

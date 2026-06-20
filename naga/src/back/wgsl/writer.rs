@@ -1188,11 +1188,25 @@ impl<W: Write> Writer<W> {
                     acceleration_structure,
                     descriptor,
                     payload,
+                    sbt_record_offset,
+                    sbt_record_stride,
+                    miss_index,
                 } => {
                     write!(self.out, "{level}traceRay(")?;
                     self.write_expr(module, acceleration_structure, func_ctx)?;
                     write!(self.out, ", ")?;
                     self.write_expr(module, descriptor, func_ctx)?;
+                    // Explicit-SBT form emits the offset/stride/miss before the payload.
+                    if let (Some(off), Some(stride), Some(miss)) =
+                        (sbt_record_offset, sbt_record_stride, miss_index)
+                    {
+                        write!(self.out, ", ")?;
+                        self.write_expr(module, off, func_ctx)?;
+                        write!(self.out, ", ")?;
+                        self.write_expr(module, stride, func_ctx)?;
+                        write!(self.out, ", ")?;
+                        self.write_expr(module, miss, func_ctx)?;
+                    }
                     write!(self.out, ", ")?;
                     self.write_expr(module, payload, func_ctx)?;
                     writeln!(self.out, ");")?
@@ -1202,6 +1216,9 @@ impl<W: Write> Writer<W> {
                     acceleration_structure,
                     descriptor,
                     payload,
+                    sbt_record_offset,
+                    sbt_record_stride,
+                    miss_index,
                 } => {
                     write!(self.out, "{level}hitObjectTraceRay(")?;
                     self.write_expr(module, hit_object, func_ctx)?;
@@ -1209,6 +1226,16 @@ impl<W: Write> Writer<W> {
                     self.write_expr(module, acceleration_structure, func_ctx)?;
                     write!(self.out, ", ")?;
                     self.write_expr(module, descriptor, func_ctx)?;
+                    if let (Some(off), Some(stride), Some(miss)) =
+                        (sbt_record_offset, sbt_record_stride, miss_index)
+                    {
+                        write!(self.out, ", ")?;
+                        self.write_expr(module, off, func_ctx)?;
+                        write!(self.out, ", ")?;
+                        self.write_expr(module, stride, func_ctx)?;
+                        write!(self.out, ", ")?;
+                        self.write_expr(module, miss, func_ctx)?;
+                    }
                     write!(self.out, ", ")?;
                     self.write_expr(module, payload, func_ctx)?;
                     writeln!(self.out, ");")?

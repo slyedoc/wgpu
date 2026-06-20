@@ -27,13 +27,25 @@ impl Writer {
                 .expect("ray desc should be set if `traceRays` is called"),
         );
 
+        let u32_type_id = self.get_u32_type_id();
         let (func_id, mut function, arg_ids) = self.write_function_signature(
-            &[acceleration_structure_type_id, ray_desc_type_id],
+            &[
+                acceleration_structure_type_id,
+                ray_desc_type_id,
+                // sbt_record_offset, sbt_record_stride, miss_index (all u32). Passed
+                // per-call so one cached helper serves every traceRay for this payload.
+                u32_type_id,
+                u32_type_id,
+                u32_type_id,
+            ],
             self.void_type,
         );
 
         let acceleration_structure_id = arg_ids[0];
         let desc_id = arg_ids[1];
+        let sbt_record_offset_id = arg_ids[2];
+        let sbt_record_stride_id = arg_ids[3];
+        let miss_index_id = arg_ids[4];
         let payload_id = self.global_variables[payload].access_id;
 
         let label_id = self.id_gen.next();
@@ -75,15 +87,13 @@ impl Writer {
             }
         }
 
-        let zero = self.get_constant_scalar(crate::Literal::U32(0));
-
         valid_block.body.push(Instruction::trace_ray(
             acceleration_structure_id,
             ray_flags_id,
             cull_mask_id,
-            zero,
-            zero,
-            zero,
+            sbt_record_offset_id,
+            sbt_record_stride_id,
+            miss_index_id,
             ray_origin_id,
             tmin_id,
             ray_dir_id,
@@ -131,6 +141,9 @@ impl BlockContext<'_> {
                 acceleration_structure,
                 descriptor,
                 payload,
+                sbt_record_offset,
+                sbt_record_stride,
+                miss_index,
             } => {
                 // Checked for when validating the module in `validate_block_impl`.
                 let crate::Expression::GlobalVariable(payload) =
@@ -141,6 +154,11 @@ impl BlockContext<'_> {
 
                 let desc_id = self.cached[descriptor];
                 let acc_struct_id = self.get_handle_id(acceleration_structure);
+                // Default any omitted SBT operand to 0 (the plain `traceRay` form).
+                let zero = self.writer.get_constant_scalar(crate::Literal::U32(0));
+                let sbt_record_offset_id = sbt_record_offset.map_or(zero, |h| self.cached[h]);
+                let sbt_record_stride_id = sbt_record_stride.map_or(zero, |h| self.cached[h]);
+                let miss_index_id = miss_index.map_or(zero, |h| self.cached[h]);
 
                 let func = self.writer.write_trace_ray(self.ir_module, payload);
 
@@ -149,7 +167,13 @@ impl BlockContext<'_> {
                     self.writer.void_type,
                     func_id,
                     func,
-                    &[acc_struct_id, desc_id],
+                    &[
+                        acc_struct_id,
+                        desc_id,
+                        sbt_record_offset_id,
+                        sbt_record_stride_id,
+                        miss_index_id,
+                    ],
                 ));
             }
             crate::RayPipelineFunction::HitObjectTraceRay {
@@ -157,6 +181,9 @@ impl BlockContext<'_> {
                 acceleration_structure,
                 descriptor,
                 payload,
+                sbt_record_offset,
+                sbt_record_stride,
+                miss_index,
             } => {
                 self.writer.require_shader_invocation_reorder();
                 let hit_object_id = self.hit_object_access_id(hit_object);
@@ -176,14 +203,17 @@ impl BlockContext<'_> {
                     valid_id: _,
                 } = self.writer.write_extract_ray_desc(block, desc_id, false);
                 let zero = self.writer.get_constant_scalar(crate::Literal::U32(0));
+                let sbt_record_offset_id = sbt_record_offset.map_or(zero, |h| self.cached[h]);
+                let sbt_record_stride_id = sbt_record_stride.map_or(zero, |h| self.cached[h]);
+                let miss_index_id = miss_index.map_or(zero, |h| self.cached[h]);
                 block.body.push(Instruction::hit_object_trace_ray(
                     hit_object_id,
                     acc_struct_id,
                     ray_flags_id,
                     cull_mask_id,
-                    zero,
-                    zero,
-                    zero,
+                    sbt_record_offset_id,
+                    sbt_record_stride_id,
+                    miss_index_id,
                     ray_origin_id,
                     tmin_id,
                     ray_dir_id,

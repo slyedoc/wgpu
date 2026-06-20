@@ -1218,21 +1218,39 @@ impl FunctionInfo {
                             acceleration_structure,
                             descriptor,
                             payload,
+                            sbt_record_offset,
+                            sbt_record_stride,
+                            miss_index,
                         } => {
                             let _ = self.add_ref(acceleration_structure);
                             let _ = self.add_ref(descriptor);
                             let _ = self.add_ref(payload);
+                            for h in [sbt_record_offset, sbt_record_stride, miss_index]
+                                .into_iter()
+                                .flatten()
+                            {
+                                let _ = self.add_ref(h);
+                            }
                         }
                         crate::RayPipelineFunction::HitObjectTraceRay {
                             hit_object,
                             acceleration_structure,
                             descriptor,
                             payload,
+                            sbt_record_offset,
+                            sbt_record_stride,
+                            miss_index,
                         } => {
                             let _ = self.add_ref(hit_object);
                             let _ = self.add_ref(acceleration_structure);
                             let _ = self.add_ref(descriptor);
                             let _ = self.add_ref(payload);
+                            for h in [sbt_record_offset, sbt_record_stride, miss_index]
+                                .into_iter()
+                                .flatten()
+                            {
+                                let _ = self.add_ref(h);
+                            }
                         }
                         crate::RayPipelineFunction::ReorderThread {
                             hit_object,

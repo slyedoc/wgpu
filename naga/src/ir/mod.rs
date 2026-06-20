@@ -2914,8 +2914,16 @@ pub enum RayPipelineFunction {
 
         /// A pointer in the ray_payload or incoming_ray_payload address spaces
         payload: Handle<Expression>,
-        // Do we want miss index? What about sbt offset and sbt stride (could be hard to validate)?
-        // https://github.com/gfx-rs/wgpu/issues/8894
+
+        /// Optional shader-binding-table record offset (a `u32`), the
+        /// `sbtRecordOffset` operand of `OpTraceRayKHR`. `None` ⇒ 0.
+        sbt_record_offset: Option<Handle<Expression>>,
+        /// Optional shader-binding-table record stride (a `u32`), the
+        /// `sbtRecordStride` operand of `OpTraceRayKHR`. `None` ⇒ 0.
+        sbt_record_stride: Option<Handle<Expression>>,
+        /// Optional miss-shader index (a `u32`), the `missIndex` operand of
+        /// `OpTraceRayKHR` — selects which miss program runs on a miss. `None` ⇒ 0.
+        miss_index: Option<Handle<Expression>>,
     },
 
     /// Shader Execution Reordering: trace a ray and **record** the hit into a
@@ -2936,6 +2944,14 @@ pub enum RayPipelineFunction {
         descriptor: Handle<Expression>,
         /// Pointer in the ray_payload / incoming_ray_payload address space.
         payload: Handle<Expression>,
+
+        /// Optional SBT record offset (`u32`), as for
+        /// [`TraceRay`](RayPipelineFunction::TraceRay). `None` ⇒ 0.
+        sbt_record_offset: Option<Handle<Expression>>,
+        /// Optional SBT record stride (`u32`). `None` ⇒ 0.
+        sbt_record_stride: Option<Handle<Expression>>,
+        /// Optional miss-shader index (`u32`). `None` ⇒ 0.
+        miss_index: Option<Handle<Expression>>,
     },
 
     /// Shader Execution Reordering: regroup this invocation with others that

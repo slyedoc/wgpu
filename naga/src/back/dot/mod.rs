@@ -420,6 +420,9 @@ impl StatementGraph {
                         acceleration_structure,
                         descriptor,
                         payload,
+                        sbt_record_offset,
+                        sbt_record_stride,
+                        miss_index,
                     } => {
                         self.dependencies.push((
                             id,
@@ -428,6 +431,15 @@ impl StatementGraph {
                         ));
                         self.dependencies.push((id, descriptor, "descriptor"));
                         self.dependencies.push((id, payload, "payload"));
+                        if let Some(h) = sbt_record_offset {
+                            self.dependencies.push((id, h, "sbt_record_offset"));
+                        }
+                        if let Some(h) = sbt_record_stride {
+                            self.dependencies.push((id, h, "sbt_record_stride"));
+                        }
+                        if let Some(h) = miss_index {
+                            self.dependencies.push((id, h, "miss_index"));
+                        }
                         "TraceRay"
                     }
                     crate::RayPipelineFunction::HitObjectTraceRay {
@@ -435,6 +447,9 @@ impl StatementGraph {
                         acceleration_structure,
                         descriptor,
                         payload,
+                        sbt_record_offset,
+                        sbt_record_stride,
+                        miss_index,
                     } => {
                         self.dependencies.push((id, hit_object, "hit_object"));
                         self.dependencies.push((
@@ -444,6 +459,15 @@ impl StatementGraph {
                         ));
                         self.dependencies.push((id, descriptor, "descriptor"));
                         self.dependencies.push((id, payload, "payload"));
+                        if let Some(h) = sbt_record_offset {
+                            self.dependencies.push((id, h, "sbt_record_offset"));
+                        }
+                        if let Some(h) = sbt_record_stride {
+                            self.dependencies.push((id, h, "sbt_record_stride"));
+                        }
+                        if let Some(h) = miss_index {
+                            self.dependencies.push((id, h, "miss_index"));
+                        }
                         "HitObjectTraceRay"
                     }
                     crate::RayPipelineFunction::ReorderThread {

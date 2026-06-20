@@ -162,21 +162,39 @@ impl FunctionTracer<'_> {
                             acceleration_structure,
                             descriptor,
                             payload,
+                            sbt_record_offset,
+                            sbt_record_stride,
+                            miss_index,
                         } => {
                             self.expressions_used.insert(acceleration_structure);
                             self.expressions_used.insert(descriptor);
                             self.expressions_used.insert(payload);
+                            for h in [sbt_record_offset, sbt_record_stride, miss_index]
+                                .into_iter()
+                                .flatten()
+                            {
+                                self.expressions_used.insert(h);
+                            }
                         }
                         crate::RayPipelineFunction::HitObjectTraceRay {
                             hit_object,
                             acceleration_structure,
                             descriptor,
                             payload,
+                            sbt_record_offset,
+                            sbt_record_stride,
+                            miss_index,
                         } => {
                             self.expressions_used.insert(hit_object);
                             self.expressions_used.insert(acceleration_structure);
                             self.expressions_used.insert(descriptor);
                             self.expressions_used.insert(payload);
+                            for h in [sbt_record_offset, sbt_record_stride, miss_index]
+                                .into_iter()
+                                .flatten()
+                            {
+                                self.expressions_used.insert(h);
+                            }
                         }
                         crate::RayPipelineFunction::ReorderThread {
                             hit_object,
@@ -432,21 +450,39 @@ impl FunctionMap {
                             ref mut acceleration_structure,
                             ref mut descriptor,
                             ref mut payload,
+                            ref mut sbt_record_offset,
+                            ref mut sbt_record_stride,
+                            ref mut miss_index,
                         } => {
                             adjust(acceleration_structure);
                             adjust(descriptor);
                             adjust(payload);
+                            for h in [sbt_record_offset, sbt_record_stride, miss_index]
+                                .into_iter()
+                                .flatten()
+                            {
+                                adjust(h);
+                            }
                         }
                         crate::RayPipelineFunction::HitObjectTraceRay {
                             ref mut hit_object,
                             ref mut acceleration_structure,
                             ref mut descriptor,
                             ref mut payload,
+                            ref mut sbt_record_offset,
+                            ref mut sbt_record_stride,
+                            ref mut miss_index,
                         } => {
                             adjust(hit_object);
                             adjust(acceleration_structure);
                             adjust(descriptor);
                             adjust(payload);
+                            for h in [sbt_record_offset, sbt_record_stride, miss_index]
+                                .into_iter()
+                                .flatten()
+                            {
+                                adjust(h);
+                            }
                         }
                         crate::RayPipelineFunction::ReorderThread {
                             ref mut hit_object,

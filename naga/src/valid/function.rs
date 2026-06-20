@@ -1698,6 +1698,9 @@ impl super::Validator {
                         acceleration_structure,
                         descriptor,
                         payload,
+                        // SBT offset/stride/miss are plain u32 operands; handle
+                        // validity is checked in `handles.rs`.
+                        ..
                     } => {
                         match *context.resolve_type_inner(
                             acceleration_structure,

@@ -927,21 +927,39 @@ fn adjust_stmt(new_pos: &HandleVec<Expression, Handle<Expression>>, stmt: &mut S
                 ref mut acceleration_structure,
                 ref mut descriptor,
                 ref mut payload,
+                ref mut sbt_record_offset,
+                ref mut sbt_record_stride,
+                ref mut miss_index,
             } => {
                 adjust(acceleration_structure);
                 adjust(descriptor);
                 adjust(payload);
+                for h in [sbt_record_offset, sbt_record_stride, miss_index]
+                    .into_iter()
+                    .flatten()
+                {
+                    adjust(h);
+                }
             }
             crate::RayPipelineFunction::HitObjectTraceRay {
                 ref mut hit_object,
                 ref mut acceleration_structure,
                 ref mut descriptor,
                 ref mut payload,
+                ref mut sbt_record_offset,
+                ref mut sbt_record_stride,
+                ref mut miss_index,
             } => {
                 adjust(hit_object);
                 adjust(acceleration_structure);
                 adjust(descriptor);
                 adjust(payload);
+                for h in [sbt_record_offset, sbt_record_stride, miss_index]
+                    .into_iter()
+                    .flatten()
+                {
+                    adjust(h);
+                }
             }
             crate::RayPipelineFunction::ReorderThread {
                 ref mut hit_object,
