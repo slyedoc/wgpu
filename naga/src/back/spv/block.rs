@@ -2126,6 +2126,9 @@ impl BlockContext<'_> {
                 )?;
                 self.write_ray_query_return_vertex_position(query, block, committed)
             }
+            crate::Expression::HitObjectGet { hit_object, query } => {
+                self.write_hit_object_get(hit_object, query, result_type_id, block)
+            }
             crate::Expression::CooperativeLoad { ref data, .. } => {
                 self.writer.require_any(
                     "CooperativeMatrix",
@@ -3453,6 +3456,7 @@ impl BlockContext<'_> {
                         | Statement::Break
                         | Statement::Continue
                         | Statement::Kill
+                        | Statement::RayTerminate(_)
                         | Statement::Return { .. }
                         | Statement::Loop { .. })
                 ),
@@ -3765,6 +3769,19 @@ impl BlockContext<'_> {
                 }
                 Statement::Kill => {
                     self.function.consume(block, Instruction::kill());
+                    return Ok(BlockExitDisposition::Discarded);
+                }
+                Statement::RayTerminate(kind) => {
+                    // OpIgnoreIntersectionKHR / OpTerminateRayKHR need only the
+                    // RayTracingKHR capability, already required by the any-hit
+                    // entry point's execution model.
+                    let inst = match kind {
+                        crate::RayTerminate::IgnoreIntersection => {
+                            Instruction::ignore_intersection()
+                        }
+                        crate::RayTerminate::TerminateRay => Instruction::terminate_ray(),
+                    };
+                    self.function.consume(block, inst);
                     return Ok(BlockExitDisposition::Discarded);
                 }
                 Statement::ControlBarrier(flags) => {

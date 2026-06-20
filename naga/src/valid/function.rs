@@ -816,6 +816,7 @@ impl super::Validator {
                             | Ex::ArrayLength(_)
                             | Ex::RayQueryGetIntersection { .. }
                             | Ex::RayQueryVertexPositions { .. }
+                            | Ex::HitObjectGet { .. }
                             | Ex::CooperativeLoad { .. }
                             | Ex::CooperativeMultiplyAdd { .. } => {
                                 self.emit_expression(handle, context)?
@@ -1025,6 +1026,11 @@ impl super::Validator {
                 }
                 S::Kill => {
                     stages &= super::ShaderStages::FRAGMENT;
+                }
+                S::RayTerminate(_) => {
+                    // ignoreIntersection / terminateRay are valid only in the
+                    // any-hit stage of a ray-tracing pipeline.
+                    stages &= super::ShaderStages::ANY_HIT;
                 }
                 S::ControlBarrier(barrier) | S::MemoryBarrier(barrier) => {
                     stages &= super::ShaderStages::COMPUTE_LIKE;

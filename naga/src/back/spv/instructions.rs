@@ -937,9 +937,18 @@ impl super::Instruction {
         instruction
     }
 
-    pub(super) fn reorder_thread_with_hit_object(hit_object: Word) -> Self {
+    pub(super) fn reorder_thread_with_hit_object(
+        hit_object: Word,
+        hint: Option<Word>,
+        hint_bits: Option<Word>,
+    ) -> Self {
         let mut instruction = Self::new(Op::ReorderThreadWithHitObjectNV);
         instruction.add_operand(hit_object);
+        // The Hint + Bits operands are optional, but present together.
+        if let (Some(hint), Some(hint_bits)) = (hint, hint_bits) {
+            instruction.add_operand(hint);
+            instruction.add_operand(hint_bits);
+        }
         instruction
     }
 
@@ -1097,6 +1106,21 @@ impl super::Instruction {
         instruction
     }
 
+    /// An `OpHitObjectGet*NV` / `OpHitObjectIs*NV` query: all share the shape
+    /// `%result = Op %result_type %hit_object`.
+    pub(super) fn hit_object_get(
+        op: Op,
+        result_type_id: Word,
+        id: Word,
+        hit_object: Word,
+    ) -> Self {
+        let mut instruction = Self::new(op);
+        instruction.set_type(result_type_id);
+        instruction.set_result(id);
+        instruction.add_operand(hit_object);
+        instruction
+    }
+
     pub(super) fn atomic_binary(
         op: Op,
         result_type_id: Word,
@@ -1231,6 +1255,14 @@ impl super::Instruction {
 
     pub(super) const fn kill() -> Self {
         Self::new(Op::Kill)
+    }
+
+    pub(super) const fn ignore_intersection() -> Self {
+        Self::new(Op::IgnoreIntersectionKHR)
+    }
+
+    pub(super) const fn terminate_ray() -> Self {
+        Self::new(Op::TerminateRayKHR)
     }
 
     pub(super) const fn return_void() -> Self {

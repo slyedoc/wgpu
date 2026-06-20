@@ -782,6 +782,13 @@ impl<W: Write> Writer<W> {
                 write!(self.out, "{level}")?;
                 writeln!(self.out, "discard;")?
             }
+            Statement::RayTerminate(kind) => {
+                let name = match kind {
+                    crate::RayTerminate::IgnoreIntersection => "ignoreIntersection",
+                    crate::RayTerminate::TerminateRay => "terminateRay",
+                };
+                writeln!(self.out, "{level}{name}();")?
+            }
             Statement::Store { pointer, value } => {
                 write!(self.out, "{level}")?;
 
@@ -1206,9 +1213,19 @@ impl<W: Write> Writer<W> {
                     self.write_expr(module, payload, func_ctx)?;
                     writeln!(self.out, ");")?
                 }
-                crate::RayPipelineFunction::ReorderThread { hit_object } => {
+                crate::RayPipelineFunction::ReorderThread {
+                    hit_object,
+                    hint,
+                    hint_bits,
+                } => {
                     write!(self.out, "{level}reorderThread(")?;
                     self.write_expr(module, hit_object, func_ctx)?;
+                    if let (Some(hint), Some(hint_bits)) = (hint, hint_bits) {
+                        write!(self.out, ", ")?;
+                        self.write_expr(module, hint, func_ctx)?;
+                        write!(self.out, ", ")?;
+                        self.write_expr(module, hint_bits, func_ctx)?;
+                    }
                     writeln!(self.out, ");")?
                 }
                 crate::RayPipelineFunction::HitObjectExecuteShader {
@@ -1937,7 +1954,8 @@ impl<W: Write> Writer<W> {
             }
             // Not supported yet
             Expression::RayQueryGetIntersection { .. }
-            | Expression::RayQueryVertexPositions { .. } => unreachable!(),
+            | Expression::RayQueryVertexPositions { .. }
+            | Expression::HitObjectGet { .. } => unreachable!(),
             // Nothing to do here, since call expression already cached
             Expression::CallResult(_)
             | Expression::AtomicResult { .. }

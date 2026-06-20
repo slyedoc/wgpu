@@ -3655,6 +3655,53 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                         MustUse::No,
                     )
                 }
+                // Shader Execution Reordering hit-object queries: read a property
+                // of a recorded `hit_object` (e.g. to compute a reorder coherence
+                // hint, or branch on hit/miss) without invoking its shader.
+                "hitObjectIsHit"
+                | "hitObjectIsMiss"
+                | "hitObjectIsEmpty"
+                | "hitObjectGetSbtRecordIndex"
+                | "hitObjectGetInstanceId"
+                | "hitObjectGetInstanceCustomIndex"
+                | "hitObjectGetPrimitiveIndex"
+                | "hitObjectGetGeometryIndex"
+                | "hitObjectGetClusterId"
+                | "hitObjectGetHitKind"
+                | "hitObjectGetRayTMin"
+                | "hitObjectGetRayTMax"
+                | "hitObjectGetWorldRayOrigin"
+                | "hitObjectGetWorldRayDirection"
+                | "hitObjectGetObjectRayOrigin"
+                | "hitObjectGetObjectRayDirection" => {
+                    use ir::HitObjectQuery as Q;
+                    let query = match function_name {
+                        "hitObjectIsHit" => Q::IsHit,
+                        "hitObjectIsMiss" => Q::IsMiss,
+                        "hitObjectIsEmpty" => Q::IsEmpty,
+                        "hitObjectGetSbtRecordIndex" => Q::SbtRecordIndex,
+                        "hitObjectGetInstanceId" => Q::InstanceId,
+                        "hitObjectGetInstanceCustomIndex" => Q::InstanceCustomIndex,
+                        "hitObjectGetPrimitiveIndex" => Q::PrimitiveIndex,
+                        "hitObjectGetGeometryIndex" => Q::GeometryIndex,
+                        "hitObjectGetClusterId" => Q::ClusterId,
+                        "hitObjectGetHitKind" => Q::HitKind,
+                        "hitObjectGetRayTMin" => Q::RayTMin,
+                        "hitObjectGetRayTMax" => Q::RayTMax,
+                        "hitObjectGetWorldRayOrigin" => Q::WorldRayOrigin,
+                        "hitObjectGetWorldRayDirection" => Q::WorldRayDirection,
+                        "hitObjectGetObjectRayOrigin" => Q::ObjectRayOrigin,
+                        _ => Q::ObjectRayDirection,
+                    };
+                    let mut args = ctx.prepare_args(arguments, 1, function_span);
+                    let hit_object = self.expression(args.next()?, ctx)?;
+                    args.finish()?;
+
+                    (
+                        ir::Expression::HitObjectGet { hit_object, query },
+                        MustUse::Yes,
+                    )
+                }
                 "subgroupBallot" => {
                     let mut args = ctx.prepare_args(arguments, 0, function_span);
                     let predicate = if arguments.len() == 1 {
@@ -3843,11 +3890,27 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     return Ok(None);
                 }
                 "reorderThread" => {
-                    let mut args = ctx.prepare_args(arguments, 1, function_span);
-                    let hit_object = self.expression(args.next()?, ctx)?;
-                    args.finish()?;
+                    // Two forms: reorderThread(hit) and the explicit-coherence-hint
+                    // reorderThread(hit, hint, hint_bits).
+                    let (hit_object, hint, hint_bits) = if arguments.len() >= 3 {
+                        let mut args = ctx.prepare_args(arguments, 3, function_span);
+                        let hit_object = self.expression(args.next()?, ctx)?;
+                        let hint = self.expression(args.next()?, ctx)?;
+                        let hint_bits = self.expression(args.next()?, ctx)?;
+                        args.finish()?;
+                        (hit_object, Some(hint), Some(hint_bits))
+                    } else {
+                        let mut args = ctx.prepare_args(arguments, 1, function_span);
+                        let hit_object = self.expression(args.next()?, ctx)?;
+                        args.finish()?;
+                        (hit_object, None, None)
+                    };
 
-                    let fun = ir::RayPipelineFunction::ReorderThread { hit_object };
+                    let fun = ir::RayPipelineFunction::ReorderThread {
+                        hit_object,
+                        hint,
+                        hint_bits,
+                    };
 
                     let rctx = ctx.runtime_expression_ctx(function_span)?;
                     rctx.block
@@ -3874,6 +3937,25 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     rctx.emitter.start(&rctx.function.expressions);
                     rctx.block
                         .push(ir::Statement::RayPipelineFunction(fun), function_span);
+                    return Ok(None);
+                }
+                // Any-hit terminators (block terminators, like `discard`).
+                "ignoreIntersection" | "terminateRay" => {
+                    let args = ctx.prepare_args(arguments, 0, function_span);
+                    args.finish()?;
+
+                    let kind = if function_name == "ignoreIntersection" {
+                        ir::RayTerminate::IgnoreIntersection
+                    } else {
+                        ir::RayTerminate::TerminateRay
+                    };
+
+                    let rctx = ctx.runtime_expression_ctx(function_span)?;
+                    rctx.block
+                        .extend(rctx.emitter.finish(&rctx.function.expressions));
+                    rctx.emitter.start(&rctx.function.expressions);
+                    rctx.block
+                        .push(ir::Statement::RayTerminate(kind), function_span);
                     return Ok(None);
                 }
                 _ => return Err(Box::new(Error::UnknownIdent(function_span, function_name))),

@@ -178,8 +178,18 @@ impl FunctionTracer<'_> {
                             self.expressions_used.insert(descriptor);
                             self.expressions_used.insert(payload);
                         }
-                        crate::RayPipelineFunction::ReorderThread { hit_object } => {
+                        crate::RayPipelineFunction::ReorderThread {
+                            hit_object,
+                            hint,
+                            hint_bits,
+                        } => {
                             self.expressions_used.insert(hit_object);
+                            if let Some(hint) = hint {
+                                self.expressions_used.insert(hint);
+                            }
+                            if let Some(hint_bits) = hint_bits {
+                                self.expressions_used.insert(hint_bits);
+                            }
                         }
                         crate::RayPipelineFunction::HitObjectExecuteShader {
                             hit_object,
@@ -194,6 +204,7 @@ impl FunctionTracer<'_> {
                     St::Break
                     | St::Continue
                     | St::Kill
+                    | St::RayTerminate(_)
                     | St::ControlBarrier(_)
                     | St::MemoryBarrier(_)
                     | St::Return { value: None } => {}
@@ -437,8 +448,18 @@ impl FunctionMap {
                             adjust(descriptor);
                             adjust(payload);
                         }
-                        crate::RayPipelineFunction::ReorderThread { ref mut hit_object } => {
+                        crate::RayPipelineFunction::ReorderThread {
+                            ref mut hit_object,
+                            ref mut hint,
+                            ref mut hint_bits,
+                        } => {
                             adjust(hit_object);
+                            if let Some(hint) = hint {
+                                adjust(hint);
+                            }
+                            if let Some(hint_bits) = hint_bits {
+                                adjust(hint_bits);
+                            }
                         }
                         crate::RayPipelineFunction::HitObjectExecuteShader {
                             ref mut hit_object,
@@ -453,6 +474,7 @@ impl FunctionMap {
                     St::Break
                     | St::Continue
                     | St::Kill
+                    | St::RayTerminate(_)
                     | St::ControlBarrier(_)
                     | St::MemoryBarrier(_)
                     | St::Return { value: None } => {}

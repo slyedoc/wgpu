@@ -665,6 +665,12 @@ impl super::Validator {
             } => {
                 handle.check_dep(query)?;
             }
+            crate::Expression::HitObjectGet {
+                hit_object,
+                query: _,
+            } => {
+                handle.check_dep(hit_object)?;
+            }
             crate::Expression::CooperativeLoad { ref data, .. } => {
                 handle.check_dep(data.pointer)?.check_dep(data.stride)?;
             }
@@ -888,8 +894,18 @@ impl super::Validator {
                     validate_expr(payload)?;
                     Ok(())
                 }
-                crate::RayPipelineFunction::ReorderThread { hit_object } => {
+                crate::RayPipelineFunction::ReorderThread {
+                    hit_object,
+                    hint,
+                    hint_bits,
+                } => {
                     validate_expr(hit_object)?;
+                    if let Some(hint) = hint {
+                        validate_expr(hint)?;
+                    }
+                    if let Some(hint_bits) = hint_bits {
+                        validate_expr(hint_bits)?;
+                    }
                     Ok(())
                 }
                 crate::RayPipelineFunction::HitObjectExecuteShader { hit_object, payload } => {
@@ -901,6 +917,7 @@ impl super::Validator {
             crate::Statement::Break
             | crate::Statement::Continue
             | crate::Statement::Kill
+            | crate::Statement::RayTerminate(_)
             | crate::Statement::ControlBarrier(_)
             | crate::Statement::MemoryBarrier(_) => Ok(()),
         })

@@ -665,6 +665,12 @@ fn adjust_expr(new_pos: &HandleVec<Expression, Handle<Expression>>, expr: &mut E
         } => {
             adjust(query);
         }
+        Expression::HitObjectGet {
+            ref mut hit_object,
+            query: _,
+        } => {
+            adjust(hit_object);
+        }
         Expression::Literal(_)
         | Expression::FunctionArgument(_)
         | Expression::GlobalVariable(_)
@@ -931,8 +937,18 @@ fn adjust_stmt(new_pos: &HandleVec<Expression, Handle<Expression>>, stmt: &mut S
                 adjust(descriptor);
                 adjust(payload);
             }
-            crate::RayPipelineFunction::ReorderThread { ref mut hit_object } => {
+            crate::RayPipelineFunction::ReorderThread {
+                ref mut hit_object,
+                ref mut hint,
+                ref mut hint_bits,
+            } => {
                 adjust(hit_object);
+                if let Some(hint) = hint {
+                    adjust(hint);
+                }
+                if let Some(hint_bits) = hint_bits {
+                    adjust(hint_bits);
+                }
             }
             crate::RayPipelineFunction::HitObjectExecuteShader {
                 ref mut hit_object,
@@ -945,6 +961,7 @@ fn adjust_stmt(new_pos: &HandleVec<Expression, Handle<Expression>>, stmt: &mut S
         Statement::Break
         | Statement::Continue
         | Statement::Kill
+        | Statement::RayTerminate(_)
         | Statement::ControlBarrier(_)
         | Statement::MemoryBarrier(_) => {}
     }

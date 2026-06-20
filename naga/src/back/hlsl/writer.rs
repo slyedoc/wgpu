@@ -2840,7 +2840,7 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
                 writeln!(self.out, ");")?;
             }
             Statement::CooperativeStore { .. } => unimplemented!(),
-            Statement::RayPipelineFunction(_) => unreachable!(),
+            Statement::RayPipelineFunction(_) | Statement::RayTerminate(_) => unreachable!(),
         }
 
         Ok(())
@@ -4385,6 +4385,7 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
             }
             // Not supported yet
             Expression::RayQueryVertexPositions { .. }
+            | Expression::HitObjectGet { .. }
             | Expression::CooperativeLoad { .. }
             | Expression::CooperativeMultiplyAdd { .. } => {
                 unreachable!()

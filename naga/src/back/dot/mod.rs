@@ -92,6 +92,8 @@ impl StatementGraph {
                     "Emit"
                 }
                 S::Kill => "Kill", //TODO: link to the beginning
+                S::RayTerminate(crate::RayTerminate::IgnoreIntersection) => "IgnoreIntersection",
+                S::RayTerminate(crate::RayTerminate::TerminateRay) => "TerminateRay",
                 S::Break => {
                     // Try to link to the break target, otherwise produce
                     // a broken connection
@@ -444,8 +446,18 @@ impl StatementGraph {
                         self.dependencies.push((id, payload, "payload"));
                         "HitObjectTraceRay"
                     }
-                    crate::RayPipelineFunction::ReorderThread { hit_object } => {
+                    crate::RayPipelineFunction::ReorderThread {
+                        hit_object,
+                        hint,
+                        hint_bits,
+                    } => {
                         self.dependencies.push((id, hit_object, "hit_object"));
+                        if let Some(hint) = hint {
+                            self.dependencies.push((id, hint, "hint"));
+                        }
+                        if let Some(hint_bits) = hint_bits {
+                            self.dependencies.push((id, hint_bits, "hint_bits"));
+                        }
                         "ReorderThread"
                     }
                     crate::RayPipelineFunction::HitObjectExecuteShader {
@@ -788,6 +800,10 @@ fn write_function_expressions(
                 edges.insert("", query);
                 let ty = if committed { "Committed" } else { "Candidate" };
                 (format!("rayQueryGet{ty}Intersection").into(), 4)
+            }
+            E::HitObjectGet { hit_object, query } => {
+                edges.insert("hit_object", hit_object);
+                (format!("hitObjectGet({query:?})").into(), 4)
             }
             E::SubgroupBallotResult => ("SubgroupBallotResult".into(), 4),
             E::SubgroupOperationResult { .. } => ("SubgroupOperationResult".into(), 4),

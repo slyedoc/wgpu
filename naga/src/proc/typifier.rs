@@ -797,6 +797,31 @@ impl<'a> ResolveContext<'a> {
                     .ok_or(ResolveError::MissingSpecialType)?;
                 TypeResolution::Handle(result)
             }
+            crate::Expression::HitObjectGet { query, .. } => {
+                use crate::HitObjectQuery as Q;
+                match query {
+                    Q::IsHit | Q::IsMiss | Q::IsEmpty => {
+                        TypeResolution::Value(Ti::Scalar(crate::Scalar::BOOL))
+                    }
+                    Q::SbtRecordIndex
+                    | Q::InstanceId
+                    | Q::InstanceCustomIndex
+                    | Q::PrimitiveIndex
+                    | Q::GeometryIndex
+                    | Q::ClusterId
+                    | Q::HitKind => TypeResolution::Value(Ti::Scalar(crate::Scalar::U32)),
+                    Q::RayTMin | Q::RayTMax => {
+                        TypeResolution::Value(Ti::Scalar(crate::Scalar::F32))
+                    }
+                    Q::WorldRayOrigin
+                    | Q::WorldRayDirection
+                    | Q::ObjectRayOrigin
+                    | Q::ObjectRayDirection => TypeResolution::Value(Ti::Vector {
+                        size: crate::VectorSize::Tri,
+                        scalar: crate::Scalar::F32,
+                    }),
+                }
+            }
             crate::Expression::SubgroupBallotResult => TypeResolution::Value(Ti::Vector {
                 scalar: crate::Scalar::U32,
                 size: crate::VectorSize::Quad,

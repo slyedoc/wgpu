@@ -1338,6 +1338,25 @@ impl super::Validator {
                     return Err(ExpressionError::InvalidRayQueryType(query));
                 }
             },
+            E::HitObjectGet {
+                hit_object,
+                query: _,
+            } => match resolver[hit_object] {
+                Ti::Pointer {
+                    base,
+                    space: crate::AddressSpace::Function,
+                } => match resolver.types[base].inner {
+                    Ti::HitObject => ShaderStages::all(),
+                    ref other => {
+                        log::debug!("HitObjectGet of a pointer to {other:?}");
+                        return Err(ExpressionError::InvalidRayQueryType(hit_object));
+                    }
+                },
+                ref other => {
+                    log::debug!("HitObjectGet of {other:?}");
+                    return Err(ExpressionError::InvalidRayQueryType(hit_object));
+                }
+            },
             E::SubgroupBallotResult | E::SubgroupOperationResult { .. } => self.subgroup_stages,
             E::CooperativeLoad { ref data, .. } => {
                 if resolver[data.pointer]

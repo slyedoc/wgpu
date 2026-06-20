@@ -2886,6 +2886,9 @@ impl<W: Write> Writer<W> {
             crate::Expression::RayQueryVertexPositions { .. } => {
                 unimplemented!()
             }
+            crate::Expression::HitObjectGet { .. } => {
+                unimplemented!()
+            }
             crate::Expression::RayQueryGetIntersection {
                 query,
                 committed: _,
@@ -4348,7 +4351,8 @@ impl<W: Write> Writer<W> {
                     }
                     writeln!(self.out, ");")?;
                 }
-                crate::Statement::RayPipelineFunction(_) => unreachable!(),
+                crate::Statement::RayPipelineFunction(_)
+                | crate::Statement::RayTerminate(_) => unreachable!(),
             }
         }
 

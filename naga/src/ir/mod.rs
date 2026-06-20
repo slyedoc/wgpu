@@ -1965,6 +1965,18 @@ pub enum Expression {
         committed: bool,
     },
 
+    /// Query a recorded [`HitObject`](TypeInner::HitObject) for one of its
+    /// properties without invoking its shader — e.g. to compute a Shader
+    /// Execution Reordering coherence hint, or to branch on hit/miss in the
+    /// ray-generation shader. Maps to the `OpHitObjectGet*NV` /
+    /// `OpHitObjectIs*NV` family (`SPV_NV_shader_invocation_reorder`).
+    HitObjectGet {
+        /// Pointer to the [`HitObject`](TypeInner::HitObject) to query.
+        hit_object: Handle<Expression>,
+        /// Which property to read (determines the result type).
+        query: HitObjectQuery,
+    },
+
     /// Result of a [`SubgroupBallot`] statement.
     ///
     /// [`SubgroupBallot`]: Statement::SubgroupBallot
@@ -2200,6 +2212,11 @@ pub enum Statement {
     ///
     /// [`Loop`]: Statement::Loop
     Kill,
+
+    /// Terminate an any-hit shader invocation. Maps to `OpIgnoreIntersectionKHR`
+    /// / `OpTerminateRayKHR` — both block terminators, valid only in the any-hit
+    /// stage of a ray-tracing pipeline. See [`RayTerminate`].
+    RayTerminate(RayTerminate),
 
     /// Synchronize invocations within the work group.
     /// The `Barrier` flags control which memory accesses should be synchronized.
@@ -2801,6 +2818,63 @@ pub struct MeshStageInfo {
     pub output_variable: Handle<GlobalVariable>,
 }
 
+/// The property read by an [`Expression::HitObjectGet`]. Each maps to an
+/// `OpHitObjectGet*NV` / `OpHitObjectIs*NV` instruction; the comment gives the
+/// result type the typifier assigns.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "deserialize", derive(Deserialize))]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+pub enum HitObjectQuery {
+    /// `OpHitObjectIsHitNV` — recorded a hit (`bool`).
+    IsHit,
+    /// `OpHitObjectIsMissNV` — recorded a miss (`bool`).
+    IsMiss,
+    /// `OpHitObjectIsEmptyNV` — the hit object is empty / never recorded (`bool`).
+    IsEmpty,
+    /// `OpHitObjectGetShaderBindingTableRecordIndexNV` — the SBT hit-group record
+    /// index of the recorded hit (`u32`). With per-material SBT records this is
+    /// the material id, the natural SER coherence hint.
+    SbtRecordIndex,
+    /// `OpHitObjectGetInstanceIdNV` — the TLAS instance index (`u32`).
+    InstanceId,
+    /// `OpHitObjectGetInstanceCustomIndexNV` — the instance custom index (`u32`).
+    InstanceCustomIndex,
+    /// `OpHitObjectGetPrimitiveIndexNV` — the primitive index (`u32`).
+    PrimitiveIndex,
+    /// `OpHitObjectGetGeometryIndexNV` — the geometry index (`u32`).
+    GeometryIndex,
+    /// `OpHitObjectGetClusterIdNV` — the NV cluster id (`u32`).
+    ClusterId,
+    /// `OpHitObjectGetHitKindNV` — the hit kind (`u32`).
+    HitKind,
+    /// `OpHitObjectGetRayTMinNV` — the ray t-min (`f32`).
+    RayTMin,
+    /// `OpHitObjectGetRayTMaxNV` — the ray t-max / hit distance (`f32`).
+    RayTMax,
+    /// `OpHitObjectGetWorldRayOriginNV` — world-space ray origin (`vec3<f32>`).
+    WorldRayOrigin,
+    /// `OpHitObjectGetWorldRayDirectionNV` — world-space ray direction (`vec3<f32>`).
+    WorldRayDirection,
+    /// `OpHitObjectGetObjectRayOriginNV` — object-space ray origin (`vec3<f32>`).
+    ObjectRayOrigin,
+    /// `OpHitObjectGetObjectRayDirectionNV` — object-space ray direction (`vec3<f32>`).
+    ObjectRayDirection,
+}
+
+/// How a [`Statement::RayTerminate`] ends an any-hit shader invocation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "deserialize", derive(Deserialize))]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+pub enum RayTerminate {
+    /// `OpIgnoreIntersectionKHR` — discard the current intersection (e.g. an
+    /// alpha-tested fragment) and continue traversal.
+    IgnoreIntersection,
+    /// `OpTerminateRayKHR` — accept the current hit as closest and stop traversal.
+    TerminateRay,
+}
+
 /// Ray tracing pipeline intrinsics
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(Serialize))]
@@ -2856,6 +2930,14 @@ pub enum RayPipelineFunction {
     ReorderThread {
         /// Pointer to the [`HitObject`](TypeInner::HitObject) to reorder by.
         hit_object: Handle<Expression>,
+        /// Optional application coherence hint (a `u32`): an extra key the
+        /// implementation reorders by, in addition to the hit object. Use to
+        /// group invocations that will access the same data (e.g. a material id)
+        /// when the hit object alone does not distinguish them. `hint` and
+        /// `hint_bits` are both present or both absent.
+        hint: Option<Handle<Expression>>,
+        /// Number of low bits of `hint` (a `u32`) the implementation should use.
+        hint_bits: Option<Handle<Expression>>,
     },
 
     /// Shader Execution Reordering: invoke the closest-hit/miss shader the

@@ -191,12 +191,20 @@ impl BlockContext<'_> {
                     payload_id,
                 ));
             }
-            crate::RayPipelineFunction::ReorderThread { hit_object } => {
+            crate::RayPipelineFunction::ReorderThread {
+                hit_object,
+                hint,
+                hint_bits,
+            } => {
                 self.writer.require_shader_invocation_reorder();
                 let hit_object_id = self.hit_object_access_id(hit_object);
-                block
-                    .body
-                    .push(Instruction::reorder_thread_with_hit_object(hit_object_id));
+                let hint_id = hint.map(|h| self.cached[h]);
+                let hint_bits_id = hint_bits.map(|h| self.cached[h]);
+                block.body.push(Instruction::reorder_thread_with_hit_object(
+                    hit_object_id,
+                    hint_id,
+                    hint_bits_id,
+                ));
             }
             crate::RayPipelineFunction::HitObjectExecuteShader {
                 hit_object,
@@ -219,6 +227,61 @@ impl BlockContext<'_> {
     /// `access_id`, anything else to its cached pointer id.
     fn payload_access_id(&self, expr: crate::Handle<crate::Expression>) -> spirv::Word {
         self.ser_pointer_id(expr)
+    }
+
+    /// Emit an `OpHitObjectGet*NV` / `OpHitObjectIs*NV` query (an
+    /// [`Expression::HitObjectGet`](crate::Expression::HitObjectGet)), returning
+    /// the result id. All map to a single-operand instruction over the hit-object
+    /// pointer; `result_type_id` is the type the typifier assigned.
+    pub(in super::super) fn write_hit_object_get(
+        &mut self,
+        hit_object: crate::Handle<crate::Expression>,
+        query: crate::HitObjectQuery,
+        result_type_id: spirv::Word,
+        block: &mut Block,
+    ) -> spirv::Word {
+        use crate::HitObjectQuery as Q;
+        use spirv::Op;
+
+        self.writer.require_shader_invocation_reorder();
+        let op = match query {
+            Q::IsHit => Op::HitObjectIsHitNV,
+            Q::IsMiss => Op::HitObjectIsMissNV,
+            Q::IsEmpty => Op::HitObjectIsEmptyNV,
+            Q::SbtRecordIndex => Op::HitObjectGetShaderBindingTableRecordIndexNV,
+            Q::InstanceId => Op::HitObjectGetInstanceIdNV,
+            Q::InstanceCustomIndex => Op::HitObjectGetInstanceCustomIndexNV,
+            Q::PrimitiveIndex => Op::HitObjectGetPrimitiveIndexNV,
+            Q::GeometryIndex => Op::HitObjectGetGeometryIndexNV,
+            Q::ClusterId => {
+                // The cluster-id query additionally needs the cluster-AS feature.
+                self.writer
+                    .require_any(
+                        "HitObjectGetClusterId",
+                        &[spirv::Capability::RayTracingClusterAccelerationStructureNV],
+                    )
+                    .ok();
+                self.writer
+                    .use_extension("SPV_NV_cluster_acceleration_structure");
+                Op::HitObjectGetClusterIdNV
+            }
+            Q::HitKind => Op::HitObjectGetHitKindNV,
+            Q::RayTMin => Op::HitObjectGetRayTMinNV,
+            Q::RayTMax => Op::HitObjectGetRayTMaxNV,
+            Q::WorldRayOrigin => Op::HitObjectGetWorldRayOriginNV,
+            Q::WorldRayDirection => Op::HitObjectGetWorldRayDirectionNV,
+            Q::ObjectRayOrigin => Op::HitObjectGetObjectRayOriginNV,
+            Q::ObjectRayDirection => Op::HitObjectGetObjectRayDirectionNV,
+        };
+        let hit_object_id = self.hit_object_access_id(hit_object);
+        let id = self.gen_id();
+        block.body.push(Instruction::hit_object_get(
+            op,
+            result_type_id,
+            id,
+            hit_object_id,
+        ));
+        id
     }
 
     fn hit_object_access_id(&self, expr: crate::Handle<crate::Expression>) -> spirv::Word {

@@ -2256,7 +2256,7 @@ impl<'a, W: Write> Writer<'a, W> {
                 writeln!(self.out, ");")?;
             }
             Statement::CooperativeStore { .. } => unimplemented!(),
-            Statement::RayPipelineFunction(_) => unimplemented!(),
+            Statement::RayPipelineFunction(_) | Statement::RayTerminate(_) => unimplemented!(),
         }
 
         Ok(())
@@ -3794,6 +3794,7 @@ impl<'a, W: Write> Writer<'a, W> {
             // not supported yet
             Expression::RayQueryGetIntersection { .. }
             | Expression::RayQueryVertexPositions { .. }
+            | Expression::HitObjectGet { .. }
             | Expression::CooperativeLoad { .. }
             | Expression::CooperativeMultiplyAdd { .. } => unreachable!(),
         }

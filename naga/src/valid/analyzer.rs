@@ -833,6 +833,13 @@ impl FunctionInfo {
                 non_uniform_result: self.add_ref(query),
                 requirements: UniformityRequirements::empty(),
             },
+            E::HitObjectGet {
+                hit_object,
+                query: _,
+            } => Uniformity {
+                non_uniform_result: self.add_ref(hit_object),
+                requirements: UniformityRequirements::empty(),
+            },
             E::SubgroupBallotResult => Uniformity {
                 non_uniform_result: Some(handle),
                 requirements: UniformityRequirements::empty(),
@@ -929,6 +936,9 @@ impl FunctionInfo {
                     }
                 }
                 S::Break | S::Continue => FunctionUniformity::new(),
+                // ignoreIntersection / terminateRay end the any-hit invocation,
+                // like Kill ends a fragment invocation.
+                S::RayTerminate(_) => FunctionUniformity::new(),
                 S::Kill => FunctionUniformity {
                     result: Uniformity::new(),
                     exit: if disruptor.is_some() {
@@ -1217,8 +1227,18 @@ impl FunctionInfo {
                             let _ = self.add_ref(descriptor);
                             let _ = self.add_ref(payload);
                         }
-                        crate::RayPipelineFunction::ReorderThread { hit_object } => {
+                        crate::RayPipelineFunction::ReorderThread {
+                            hit_object,
+                            hint,
+                            hint_bits,
+                        } => {
                             let _ = self.add_ref(hit_object);
+                            if let Some(hint) = hint {
+                                let _ = self.add_ref(hint);
+                            }
+                            if let Some(hint_bits) = hint_bits {
+                                let _ = self.add_ref(hint_bits);
+                            }
                         }
                         crate::RayPipelineFunction::HitObjectExecuteShader {
                             hit_object,
