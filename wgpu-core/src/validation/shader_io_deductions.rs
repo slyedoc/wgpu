@@ -98,6 +98,7 @@ impl MaxFragmentShaderInputDeduction {
             | BuiltIn::NumRayInvocations
             | BuiltIn::InstanceCustomData
             | BuiltIn::RayInstanceId
+            | BuiltIn::ClusterId
             | BuiltIn::GeometryIndex
             | BuiltIn::WorldRayOrigin
             | BuiltIn::WorldRayDirection

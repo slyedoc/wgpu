@@ -3232,6 +3232,14 @@ impl Writer {
                     Bi::NumRayInvocations => BuiltIn::LaunchSizeKHR,
                     Bi::InstanceCustomData => BuiltIn::InstanceCustomIndexKHR,
                     Bi::RayInstanceId => BuiltIn::InstanceId,
+                    Bi::ClusterId => {
+                        self.require_any(
+                            "`cluster_id` built-in",
+                            &[spirv::Capability::RayTracingClusterAccelerationStructureNV],
+                        )?;
+                        self.use_extension("SPV_NV_cluster_acceleration_structure");
+                        BuiltIn::ClusterIDNV
+                    }
                     Bi::GeometryIndex => BuiltIn::RayGeometryIndexKHR,
                     Bi::WorldRayOrigin => BuiltIn::WorldRayOriginKHR,
                     Bi::WorldRayDirection => BuiltIn::WorldRayDirectionKHR,

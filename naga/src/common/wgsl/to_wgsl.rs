@@ -199,6 +199,7 @@ impl TryToWgsl for crate::BuiltIn {
             Bi::NumRayInvocations => "num_ray_invocations",
             Bi::InstanceCustomData => "instance_custom_data",
             Bi::RayInstanceId => "instance_id",
+            Bi::ClusterId => "cluster_id",
             Bi::GeometryIndex => "geometry_index",
             Bi::WorldRayOrigin => "world_ray_origin",
             Bi::WorldRayDirection => "world_ray_direction",

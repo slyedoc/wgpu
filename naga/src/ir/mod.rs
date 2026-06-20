@@ -513,6 +513,12 @@ pub enum BuiltIn {
     /// Read in closest hit and any hit shaders, the index of the geometry in
     /// the blas.
     GeometryIndex,
+    /// Read in closest hit and any hit shaders against NV cluster acceleration
+    /// structures: the id of the hit cluster (SPIR-V `ClusterIDNV`, the
+    /// `clusterId` baked into each CLAS). Lets the hit shader address per-cluster
+    /// data, with [`PrimitiveIndex`](Self::PrimitiveIndex) being the triangle
+    /// within that cluster.
+    ClusterId,
     /// Read in closest hit, any hit, and miss shaders, the origin of the ray.
     WorldRayOrigin,
     /// Read in closest hit, any hit, and miss shaders, the direction of the

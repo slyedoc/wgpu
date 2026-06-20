@@ -503,6 +503,19 @@ impl VaryingContext<'_> {
                         },
                         *ty_inner == Ti::Scalar(crate::Scalar::U32),
                     ),
+                    Bi::ClusterId => (
+                        match self.stage {
+                            St::RayGeneration
+                            | St::Miss
+                            | St::Vertex
+                            | St::Fragment
+                            | St::Compute
+                            | St::Mesh
+                            | St::Task => false,
+                            St::AnyHit | St::ClosestHit => true,
+                        },
+                        *ty_inner == Ti::Scalar(crate::Scalar::U32),
+                    ),
                     Bi::GeometryIndex => (
                         match self.stage {
                             St::RayGeneration

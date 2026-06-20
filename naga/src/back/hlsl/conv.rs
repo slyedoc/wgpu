@@ -196,6 +196,7 @@ impl crate::BuiltIn {
             | Self::NumRayInvocations
             | Self::InstanceCustomData
             | Self::RayInstanceId
+            | Self::ClusterId
             | Self::GeometryIndex
             | Self::WorldRayOrigin
             | Self::WorldRayDirection

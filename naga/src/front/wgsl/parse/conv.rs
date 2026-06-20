@@ -156,6 +156,7 @@ pub fn map_built_in(
         "num_ray_invocations" => crate::BuiltIn::NumRayInvocations,
         "instance_custom_data" => crate::BuiltIn::InstanceCustomData,
         "instance_id" => crate::BuiltIn::RayInstanceId,
+        "cluster_id" => crate::BuiltIn::ClusterId,
         "geometry_index" => crate::BuiltIn::GeometryIndex,
         "world_ray_origin" => crate::BuiltIn::WorldRayOrigin,
         "world_ray_direction" => crate::BuiltIn::WorldRayDirection,
