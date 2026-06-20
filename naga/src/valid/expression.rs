@@ -1358,11 +1358,11 @@ impl super::Validator {
                 }
             },
             E::PhysicalLoad { address, pointee } => {
-                // Pointee must be a scalar or vector (aggregates are loaded
-                // field-by-field to avoid explicit-layout requirements on physical
-                // pointees); the address must be a 64-bit uint device address.
+                // Pointee must be a scalar, vector, or struct (structs get the
+                // usual member Offset layout, valid for a PhysicalStorageBuffer
+                // pointee); the address must be a 64-bit uint device address.
                 match module.types[pointee].inner {
-                    Ti::Scalar(_) | Ti::Vector { .. } => {}
+                    Ti::Scalar(_) | Ti::Vector { .. } | Ti::Struct { .. } => {}
                     ref other => {
                         log::debug!("PhysicalLoad pointee {other:?}");
                         return Err(ExpressionError::InvalidRayQueryType(address));

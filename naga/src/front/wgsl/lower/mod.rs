@@ -3075,7 +3075,9 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     // raw 64-bit buffer-device-address. T must be scalar/vector.
                     let ty = template_params.ty(self, ctx)?;
                     match ctx.module.types[ty].inner {
-                        ir::TypeInner::Scalar(_) | ir::TypeInner::Vector { .. } => {}
+                        ir::TypeInner::Scalar(_)
+                        | ir::TypeInner::Vector { .. }
+                        | ir::TypeInner::Struct { .. } => {}
                         _ => {
                             return Err(Box::new(Error::BadTypeCast {
                                 from_type: "physical_load".to_string(),
