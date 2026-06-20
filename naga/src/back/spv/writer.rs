@@ -3792,7 +3792,16 @@ impl Writer {
                 .to_words(&mut self.logical_layout.capabilities);
         }
 
-        let addressing_model = spirv::AddressingModel::Logical;
+        // Promote to PhysicalStorageBuffer64 if any `physical_load` required the
+        // buffer-device-address capability (logical pointers still work alongside).
+        let addressing_model = if self
+            .capabilities_used
+            .contains(&spirv::Capability::PhysicalStorageBufferAddresses)
+        {
+            spirv::AddressingModel::PhysicalStorageBuffer64
+        } else {
+            spirv::AddressingModel::Logical
+        };
         let memory_model = if self
             .capabilities_used
             .contains(&spirv::Capability::VulkanMemoryModel)

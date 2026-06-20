@@ -671,6 +671,12 @@ fn adjust_expr(new_pos: &HandleVec<Expression, Handle<Expression>>, expr: &mut E
         } => {
             adjust(hit_object);
         }
+        Expression::PhysicalLoad {
+            ref mut address,
+            pointee: _,
+        } => {
+            adjust(address);
+        }
         Expression::Literal(_)
         | Expression::FunctionArgument(_)
         | Expression::GlobalVariable(_)

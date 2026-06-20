@@ -2129,6 +2129,36 @@ impl BlockContext<'_> {
             crate::Expression::HitObjectGet { hit_object, query } => {
                 self.write_hit_object_get(hit_object, query, result_type_id, block)
             }
+            crate::Expression::PhysicalLoad { address, pointee } => {
+                // Bindless load from a buffer-device-address: reinterpret the u64
+                // as a PhysicalStorageBuffer pointer and load through it. The
+                // module's addressing model is promoted to PhysicalStorageBuffer64
+                // when this capability is required (see write_module).
+                self.writer.require_any(
+                    "physical_load",
+                    &[spirv::Capability::PhysicalStorageBufferAddresses],
+                )?;
+                self.writer
+                    .use_extension("SPV_KHR_physical_storage_buffer");
+                let address_id = self.cached[address];
+                let pointee_type_id = self.get_handle_type_id(pointee);
+                let ptr_type_id = self
+                    .writer
+                    .get_pointer_type_id(pointee_type_id, spirv::StorageClass::PhysicalStorageBuffer);
+                let ptr_id = self.gen_id();
+                block.body.push(Instruction::convert_u_to_ptr(
+                    ptr_type_id,
+                    ptr_id,
+                    address_id,
+                ));
+                let id = self.gen_id();
+                // Conservative 4-byte alignment: all physically-loaded solari data
+                // is 32-bit-component, and under-stating alignment is always safe.
+                block
+                    .body
+                    .push(Instruction::load_aligned(result_type_id, id, ptr_id, 4));
+                id
+            }
             crate::Expression::CooperativeLoad { ref data, .. } => {
                 self.writer.require_any(
                     "CooperativeMatrix",

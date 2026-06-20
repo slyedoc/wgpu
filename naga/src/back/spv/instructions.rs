@@ -500,6 +500,33 @@ impl super::Instruction {
         instruction
     }
 
+    /// `OpConvertUToPtr` — reinterpret a (64-bit) integer as a pointer. Used to
+    /// turn a buffer-device-address into a `PhysicalStorageBuffer` pointer.
+    pub(super) fn convert_u_to_ptr(result_type_id: Word, id: Word, int_id: Word) -> Self {
+        let mut instruction = Self::new(Op::ConvertUToPtr);
+        instruction.set_type(result_type_id);
+        instruction.set_result(id);
+        instruction.add_operand(int_id);
+        instruction
+    }
+
+    /// `OpLoad` with an explicit `Aligned` memory operand — required for loads
+    /// through `PhysicalStorageBuffer` pointers.
+    pub(super) fn load_aligned(
+        result_type_id: Word,
+        id: Word,
+        pointer_id: Word,
+        alignment: Word,
+    ) -> Self {
+        let mut instruction = Self::new(Op::Load);
+        instruction.set_type(result_type_id);
+        instruction.set_result(id);
+        instruction.add_operand(pointer_id);
+        instruction.add_operand(spirv::MemoryAccess::ALIGNED.bits());
+        instruction.add_operand(alignment);
+        instruction
+    }
+
     pub(super) fn load(
         result_type_id: Word,
         id: Word,

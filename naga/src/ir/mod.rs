@@ -1977,6 +1977,20 @@ pub enum Expression {
         query: HitObjectQuery,
     },
 
+    /// Load a value from a raw 64-bit GPU buffer-device-address (bindless /
+    /// `VK_KHR_buffer_device_address`). `address` is a `u64`; `pointee` is the
+    /// loaded value's type (restricted to a scalar or vector — aggregates are
+    /// loaded field-by-field by address arithmetic, avoiding explicit-layout
+    /// requirements on physical pointees). Lowers to `OpConvertUToPtr` (to a
+    /// `PhysicalStorageBuffer` pointer) + an `Aligned` `OpLoad`. WGSL:
+    /// `physical_load<T>(address)`.
+    PhysicalLoad {
+        /// The 64-bit device address to load from (`u64`).
+        address: Handle<Expression>,
+        /// The type to load — a scalar or vector.
+        pointee: Handle<Type>,
+    },
+
     /// Result of a [`SubgroupBallot`] statement.
     ///
     /// [`SubgroupBallot`]: Statement::SubgroupBallot

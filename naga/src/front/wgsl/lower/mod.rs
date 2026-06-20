@@ -3070,6 +3070,33 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                         MustUse::Yes,
                     )
                 }
+                "physical_load" => {
+                    // physical_load<T>(address: u64) -> T : bindless load from a
+                    // raw 64-bit buffer-device-address. T must be scalar/vector.
+                    let ty = template_params.ty(self, ctx)?;
+                    match ctx.module.types[ty].inner {
+                        ir::TypeInner::Scalar(_) | ir::TypeInner::Vector { .. } => {}
+                        _ => {
+                            return Err(Box::new(Error::BadTypeCast {
+                                from_type: "physical_load".to_string(),
+                                span: function_span,
+                                to_type: ctx.type_to_string(ty),
+                            }))
+                        }
+                    }
+
+                    let mut args = ctx.prepare_args(arguments, 1, function_span);
+                    let address = self.expression(args.next()?, ctx)?;
+                    args.finish()?;
+
+                    (
+                        ir::Expression::PhysicalLoad {
+                            address,
+                            pointee: ty,
+                        },
+                        MustUse::Yes,
+                    )
+                }
                 "coopLoad" | "coopLoadT" => {
                     let row_major = function_name.ends_with("T");
                     let (matrix_ty, matrix_span) = template_params.ty_with_span(self, ctx)?;

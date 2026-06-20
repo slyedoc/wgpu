@@ -1955,7 +1955,8 @@ impl<W: Write> Writer<W> {
             // Not supported yet
             Expression::RayQueryGetIntersection { .. }
             | Expression::RayQueryVertexPositions { .. }
-            | Expression::HitObjectGet { .. } => unreachable!(),
+            | Expression::HitObjectGet { .. }
+            | Expression::PhysicalLoad { .. } => unreachable!(),
             // Nothing to do here, since call expression already cached
             Expression::CallResult(_)
             | Expression::AtomicResult { .. }

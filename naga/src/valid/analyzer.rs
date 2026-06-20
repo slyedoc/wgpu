@@ -840,6 +840,13 @@ impl FunctionInfo {
                 non_uniform_result: self.add_ref(hit_object),
                 requirements: UniformityRequirements::empty(),
             },
+            E::PhysicalLoad {
+                address,
+                pointee: _,
+            } => Uniformity {
+                non_uniform_result: self.add_ref(address),
+                requirements: UniformityRequirements::empty(),
+            },
             E::SubgroupBallotResult => Uniformity {
                 non_uniform_result: Some(handle),
                 requirements: UniformityRequirements::empty(),

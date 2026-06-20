@@ -797,6 +797,7 @@ impl<'a> ResolveContext<'a> {
                     .ok_or(ResolveError::MissingSpecialType)?;
                 TypeResolution::Handle(result)
             }
+            crate::Expression::PhysicalLoad { pointee, .. } => TypeResolution::Handle(pointee),
             crate::Expression::HitObjectGet { query, .. } => {
                 use crate::HitObjectQuery as Q;
                 match query {

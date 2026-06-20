@@ -671,6 +671,12 @@ impl super::Validator {
             } => {
                 handle.check_dep(hit_object)?;
             }
+            crate::Expression::PhysicalLoad {
+                address,
+                pointee: _,
+            } => {
+                handle.check_dep(address)?;
+            }
             crate::Expression::CooperativeLoad { ref data, .. } => {
                 handle.check_dep(data.pointer)?.check_dep(data.stride)?;
             }

@@ -1357,6 +1357,29 @@ impl super::Validator {
                     return Err(ExpressionError::InvalidRayQueryType(hit_object));
                 }
             },
+            E::PhysicalLoad { address, pointee } => {
+                // Pointee must be a scalar or vector (aggregates are loaded
+                // field-by-field to avoid explicit-layout requirements on physical
+                // pointees); the address must be a 64-bit uint device address.
+                match module.types[pointee].inner {
+                    Ti::Scalar(_) | Ti::Vector { .. } => {}
+                    ref other => {
+                        log::debug!("PhysicalLoad pointee {other:?}");
+                        return Err(ExpressionError::InvalidRayQueryType(address));
+                    }
+                }
+                match resolver[address] {
+                    Ti::Scalar(crate::Scalar {
+                        kind: crate::ScalarKind::Uint,
+                        width: 8,
+                    }) => {}
+                    ref other => {
+                        log::debug!("PhysicalLoad address of {other:?}");
+                        return Err(ExpressionError::InvalidRayQueryType(address));
+                    }
+                }
+                ShaderStages::all()
+            }
             E::SubgroupBallotResult | E::SubgroupOperationResult { .. } => self.subgroup_stages,
             E::CooperativeLoad { ref data, .. } => {
                 if resolver[data.pointer]

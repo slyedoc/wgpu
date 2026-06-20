@@ -259,6 +259,10 @@ impl ExpressionTracer<'_> {
             } => {
                 self.expressions_used.insert(hit_object);
             }
+            Ex::PhysicalLoad { address, pointee } => {
+                self.expressions_used.insert(address);
+                self.types_used.insert(pointee);
+            }
             Ex::CooperativeLoad { ref data, .. } => {
                 self.expressions_used.insert(data.pointer);
                 self.expressions_used.insert(data.stride);
@@ -438,6 +442,13 @@ impl ModuleMap {
                 ref mut hit_object,
                 query: _,
             } => adjust(hit_object),
+            Ex::PhysicalLoad {
+                ref mut address,
+                ref mut pointee,
+            } => {
+                adjust(address);
+                self.types.adjust(pointee);
+            }
             Ex::CooperativeLoad { ref mut data, .. } => {
                 adjust(&mut data.pointer);
                 adjust(&mut data.stride);

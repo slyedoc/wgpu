@@ -2889,6 +2889,9 @@ impl<W: Write> Writer<W> {
             crate::Expression::HitObjectGet { .. } => {
                 unimplemented!()
             }
+            crate::Expression::PhysicalLoad { .. } => {
+                unimplemented!()
+            }
             crate::Expression::RayQueryGetIntersection {
                 query,
                 committed: _,
