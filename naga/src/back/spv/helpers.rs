@@ -88,15 +88,18 @@ impl crate::AddressSpace {
     pub(super) const fn to_spirv_semantics_and_scope(
         self,
     ) -> (spirv::MemorySemantics, spirv::Scope) {
-        // Device scope on an atomic requires the `vulkanMemoryModelDeviceScope`
-        // feature; QueueFamily does not. All invocations of a dispatch live in one
-        // queue family, so QueueFamily is sufficient (and correct) for storage and
-        // image atomics on single-queue wgpu, and avoids enabling that feature.
+        // Device scope here is intentional. The narrower `QueueFamily` scope is
+        // only legal under the Vulkan memory model, which requires the module to
+        // declare `OpCapability VulkanMemoryModel` — naga only does that for
+        // cooperative matrices, so these (GLSL450-memory-model) modules would emit
+        // invalid SPIR-V with QueueFamily and be rejected by spirv-val. Device
+        // scope is valid SPIR-V; the `vulkanMemoryModelDeviceScope`-06265 runtime
+        // validation message it triggers is benign (the driver honours it).
         match self {
-            Self::Storage { .. } => (spirv::MemorySemantics::empty(), spirv::Scope::QueueFamily),
+            Self::Storage { .. } => (spirv::MemorySemantics::empty(), spirv::Scope::Device),
             Self::WorkGroup => (spirv::MemorySemantics::empty(), spirv::Scope::Workgroup),
-            Self::Uniform => (spirv::MemorySemantics::empty(), spirv::Scope::QueueFamily),
-            Self::Handle => (spirv::MemorySemantics::empty(), spirv::Scope::QueueFamily),
+            Self::Uniform => (spirv::MemorySemantics::empty(), spirv::Scope::Device),
+            Self::Handle => (spirv::MemorySemantics::empty(), spirv::Scope::Device),
             _ => (spirv::MemorySemantics::empty(), spirv::Scope::Invocation),
         }
     }
