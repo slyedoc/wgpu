@@ -2781,6 +2781,21 @@ impl dispatch::CommandEncoderInterface for CoreCommandEncoder {
         }
     }
 
+    fn keep_bind_group_alive(&self, bind_group: &dispatch::DispatchBindGroup) {
+        let bind_group = bind_group.as_core();
+        if let Err(cause) = self
+            .context
+            .0
+            .command_encoder_keep_bind_group_alive(self.id, bind_group.id)
+        {
+            self.context.handle_error_nolabel(
+                &self.error_sink,
+                cause,
+                "CommandEncoder::keep_bind_group_alive",
+            );
+        }
+    }
+
     fn write_timestamp(&self, query_set: &dispatch::DispatchQuerySet, query_index: u32) {
         let query_set = query_set.as_core();
 

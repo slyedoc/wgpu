@@ -1761,6 +1761,48 @@ impl Global {
             .push_with(|| -> Result<_, CommandEncoderError> { Ok(ArcCommand::PopDebugGroup) })
     }
 
+    /// Register a bind group as used by this command encoder, so wgpu keeps it (and
+    /// its descriptor set) alive until the submission that uses this command buffer
+    /// has finished executing on the GPU.
+    ///
+    /// Recording with the regular API (`set_bind_group`) tracks this automatically.
+    /// Code that records raw hal into the encoder via [`command_encoder_as_hal_mut`]
+    /// and binds a wgpu bind group's descriptor set directly (e.g. a raw ray-tracing
+    /// dispatch) bypasses wgpu's tracker — so without this call wgpu frees the
+    /// descriptor set as soon as the bind group is dropped, even while an in-flight
+    /// submission still reads it. Call this once per externally-bound bind group,
+    /// after the raw recording, with the same encoder the raw work was recorded into.
+    ///
+    /// [`command_encoder_as_hal_mut`]: Global::command_encoder_as_hal_mut
+    pub fn command_encoder_keep_bind_group_alive(
+        &self,
+        encoder_id: id::CommandEncoderId,
+        bind_group_id: id::BindGroupId,
+    ) -> Result<(), EncoderStateError> {
+        profiling::scope!("CommandEncoder::keep_bind_group_alive");
+        api_log!("CommandEncoder::keep_bind_group_alive {bind_group_id:?}");
+
+        let hub = &self.hub;
+
+        let cmd_enc = hub.command_encoders.get(encoder_id);
+        let mut cmd_buf_data = cmd_enc.data.lock();
+
+        let Ok(bind_group) = hub.bind_groups.get(bind_group_id).get() else {
+            // Invalid or already-destroyed bind group — nothing to keep alive.
+            return Ok(());
+        };
+
+        // The encoder is in the raw-hal encoding state here (the caller recorded the
+        // dispatch via `as_hal_mut`); pass `Raw` so the api-state check is a no-op.
+        // We only touch the tracker — at submit, the command buffer's tracker is held
+        // in the active submission until its fence signals, which defers the bind
+        // group's (and its descriptor set's) destruction to GPU completion.
+        cmd_buf_data.with_buffer(EncodingApi::Raw, |inner| -> Result<(), CommandEncoderError> {
+            inner.trackers.bind_groups.insert_single(bind_group);
+            Ok(())
+        })
+    }
+
     fn validate_pass_timestamp_writes<E>(
         device: &Device,
         query_sets: &Storage<Fallible<QuerySet>>,

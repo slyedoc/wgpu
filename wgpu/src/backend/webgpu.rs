@@ -3244,6 +3244,12 @@ impl dispatch::CommandEncoderInterface for WebCommandEncoder {
         self.inner.pop_debug_group()
     }
 
+    fn keep_bind_group_alive(&self, _bind_group: &dispatch::DispatchBindGroup) {
+        // No-op on WebGPU: bind-group lifetime is managed by the browser, and there
+        // is no raw-encoding path that could bind a descriptor set outside the
+        // tracker. This exists for the native raw-hal ray-tracing path.
+    }
+
     fn write_timestamp(&self, _query_set: &dispatch::DispatchQuerySet, _query_index: u32) {
         // Not available on WebGPU.
         // This was part of the spec originally but got removed, see https://github.com/gpuweb/gpuweb/pull/4370

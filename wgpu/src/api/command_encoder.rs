@@ -217,6 +217,20 @@ impl CommandEncoder {
         self.inner.pop_debug_group();
     }
 
+    /// Keep `bind_group` alive until the GPU has finished the submission this
+    /// encoder's command buffer becomes part of.
+    ///
+    /// This is only needed when recording raw backend commands into this encoder via
+    /// [`CommandEncoder::as_hal_mut`] that bind the bind group's descriptor set
+    /// directly, bypassing wgpu's resource tracking (for example, a raw ray-tracing
+    /// dispatch on the Vulkan backend). Without it, wgpu can free the underlying
+    /// descriptor set as soon as the [`BindGroup`] is dropped — even while an
+    /// in-flight submission still references it. Recording with the regular pass API
+    /// (`set_bind_group`) tracks bind groups automatically and never needs this.
+    pub fn keep_bind_group_alive(&mut self, bind_group: &BindGroup) {
+        self.inner.keep_bind_group_alive(&bind_group.inner);
+    }
+
     /// Copies query results stored in `query_set` into `destination` so that they can be read
     /// by compute shaders or buffer operations.
     ///

@@ -366,6 +366,8 @@ pub trait CommandEncoderInterface: CommonTraits {
     fn push_debug_group(&self, label: &str);
     fn pop_debug_group(&self);
 
+    fn keep_bind_group_alive(&self, bind_group: &DispatchBindGroup);
+
     fn write_timestamp(&self, query_set: &DispatchQuerySet, query_index: u32);
     fn resolve_query_set(
         &self,
