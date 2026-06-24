@@ -671,6 +671,7 @@ fn adjust_expr(new_pos: &HandleVec<Expression, Handle<Expression>>, expr: &mut E
         } => {
             adjust(hit_object);
         }
+        Expression::ReadClock => {}
         Expression::PhysicalLoad {
             ref mut address,
             pointee: _,

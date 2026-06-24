@@ -829,6 +829,7 @@ fn write_function_expressions(
                 edges.insert("hit_object", hit_object);
                 (format!("hitObjectGet({query:?})").into(), 4)
             }
+            E::ReadClock => ("readClock".into(), 8),
             E::PhysicalLoad { address, pointee: _ } => {
                 edges.insert("address", address);
                 ("physicalLoad".into(), 4)

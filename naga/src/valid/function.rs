@@ -817,6 +817,7 @@ impl super::Validator {
                             | Ex::RayQueryGetIntersection { .. }
                             | Ex::RayQueryVertexPositions { .. }
                             | Ex::HitObjectGet { .. }
+                            | Ex::ReadClock
                             | Ex::PhysicalLoad { .. }
                             | Ex::CooperativeLoad { .. }
                             | Ex::CooperativeMultiplyAdd { .. } => {

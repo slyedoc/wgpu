@@ -1320,6 +1320,7 @@ impl<'a> ConstantEvaluator<'a> {
             | Expression::RayQueryGetIntersection { .. }
             | Expression::RayQueryVertexPositions { .. }
             | Expression::HitObjectGet { .. }
+            | Expression::ReadClock
             | Expression::PhysicalLoad { .. } => {
                 Err(ConstantEvaluatorError::RayQueryExpression)
             }

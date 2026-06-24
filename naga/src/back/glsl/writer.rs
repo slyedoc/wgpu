@@ -3795,6 +3795,7 @@ impl<'a, W: Write> Writer<'a, W> {
             Expression::RayQueryGetIntersection { .. }
             | Expression::RayQueryVertexPositions { .. }
             | Expression::HitObjectGet { .. }
+            | Expression::ReadClock
             | Expression::PhysicalLoad { .. }
             | Expression::CooperativeLoad { .. }
             | Expression::CooperativeMultiplyAdd { .. } => unreachable!(),

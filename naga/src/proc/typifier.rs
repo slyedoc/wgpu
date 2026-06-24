@@ -823,6 +823,7 @@ impl<'a> ResolveContext<'a> {
                     }),
                 }
             }
+            crate::Expression::ReadClock => TypeResolution::Value(Ti::Scalar(crate::Scalar::U64)),
             crate::Expression::SubgroupBallotResult => TypeResolution::Value(Ti::Vector {
                 scalar: crate::Scalar::U32,
                 size: crate::VectorSize::Quad,

@@ -1984,6 +1984,14 @@ pub enum Expression {
         query: HitObjectQuery,
     },
 
+    /// Read the shader clock at `Subgroup` scope (`OpReadClockKHR`,
+    /// `SPV_KHR_shader_clock`) — a monotonically-increasing realtime-ish counter for
+    /// per-invocation cost measurement (e.g. a per-pixel ray-tracing cost heatmap:
+    /// read before and after the trace and write the delta). Result type `u64`. Has
+    /// no operands; the WGSL front-end materializes it at the call site so it is not
+    /// hoisted or CSE'd, and a surrounding `traceRay` acts as the ordering barrier.
+    ReadClock,
+
     /// Load a value from a raw 64-bit GPU buffer-device-address (bindless /
     /// `VK_KHR_buffer_device_address`). `address` is a `u64`; `pointee` is the
     /// loaded value's type (restricted to a scalar or vector — aggregates are

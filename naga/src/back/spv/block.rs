@@ -2129,6 +2129,18 @@ impl BlockContext<'_> {
             crate::Expression::HitObjectGet { hit_object, query } => {
                 self.write_hit_object_get(hit_object, query, result_type_id, block)
             }
+            crate::Expression::ReadClock => {
+                self.writer
+                    .require_any("`shader_clock`", &[spirv::Capability::ShaderClockKHR])?;
+                self.writer.use_extension("SPV_KHR_shader_clock");
+                // Subgroup scope (`Scope::Subgroup` == 3) — `shaderSubgroupClock`.
+                let scope_id = self.get_scope_constant(spirv::Scope::Subgroup as u32);
+                let id = self.gen_id();
+                block
+                    .body
+                    .push(Instruction::read_clock(result_type_id, id, scope_id));
+                id
+            }
             crate::Expression::PhysicalLoad { address, pointee } => {
                 // Bindless load from a buffer-device-address: reinterpret the u64
                 // as a PhysicalStorageBuffer pointer and load through it. The

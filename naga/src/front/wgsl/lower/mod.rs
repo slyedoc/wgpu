@@ -3731,6 +3731,16 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                         MustUse::Yes,
                     )
                 }
+                "shader_clock" => {
+                    let mut args = ctx.prepare_args(arguments, 0, function_span);
+                    args.finish()?;
+                    // `interrupt_emitter` materializes the clock read at the call site
+                    // (its own emit), so the two reads bracketing a trace aren't
+                    // hoisted/CSE'd into one. Returns a `u64`.
+                    let result =
+                        ctx.interrupt_emitter(ir::Expression::ReadClock, function_span)?;
+                    return Ok(Some((result, MustUse::Yes)));
+                }
                 "subgroupBallot" => {
                     let mut args = ctx.prepare_args(arguments, 0, function_span);
                     let predicate = if arguments.len() == 1 {

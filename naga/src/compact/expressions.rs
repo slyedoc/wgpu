@@ -253,6 +253,7 @@ impl ExpressionTracer<'_> {
             } => {
                 self.expressions_used.insert(query);
             }
+            Ex::ReadClock => {}
             Ex::HitObjectGet {
                 hit_object,
                 query: _,
@@ -438,6 +439,7 @@ impl ModuleMap {
                 ref mut query,
                 committed: _,
             } => adjust(query),
+            Ex::ReadClock => {}
             Ex::HitObjectGet {
                 ref mut hit_object,
                 query: _,

@@ -840,6 +840,11 @@ impl FunctionInfo {
                 non_uniform_result: self.add_ref(hit_object),
                 requirements: UniformityRequirements::empty(),
             },
+            E::ReadClock => Uniformity {
+                // The clock differs per invocation — never uniform.
+                non_uniform_result: Some(handle),
+                requirements: UniformityRequirements::empty(),
+            },
             E::PhysicalLoad {
                 address,
                 pointee: _,

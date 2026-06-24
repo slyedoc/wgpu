@@ -1983,6 +1983,7 @@ impl<W: Write> Writer<W> {
             Expression::RayQueryGetIntersection { .. }
             | Expression::RayQueryVertexPositions { .. }
             | Expression::HitObjectGet { .. }
+            | Expression::ReadClock
             | Expression::PhysicalLoad { .. } => unreachable!(),
             // Nothing to do here, since call expression already cached
             Expression::CallResult(_)

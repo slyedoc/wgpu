@@ -1148,6 +1148,14 @@ impl super::Instruction {
         instruction
     }
 
+    pub(super) fn read_clock(result_type_id: Word, id: Word, scope: Word) -> Self {
+        let mut instruction = Self::new(Op::ReadClockKHR);
+        instruction.set_type(result_type_id);
+        instruction.set_result(id);
+        instruction.add_operand(scope);
+        instruction
+    }
+
     pub(super) fn atomic_binary(
         op: Op,
         result_type_id: Word,

@@ -671,6 +671,7 @@ impl super::Validator {
             } => {
                 handle.check_dep(hit_object)?;
             }
+            crate::Expression::ReadClock => {}
             crate::Expression::PhysicalLoad {
                 address,
                 pointee: _,

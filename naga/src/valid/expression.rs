@@ -1338,6 +1338,7 @@ impl super::Validator {
                     return Err(ExpressionError::InvalidRayQueryType(query));
                 }
             },
+            E::ReadClock => ShaderStages::all(),
             E::HitObjectGet {
                 hit_object,
                 query: _,

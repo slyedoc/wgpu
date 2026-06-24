@@ -4386,6 +4386,7 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
             // Not supported yet
             Expression::RayQueryVertexPositions { .. }
             | Expression::HitObjectGet { .. }
+            | Expression::ReadClock
             | Expression::PhysicalLoad { .. }
             | Expression::CooperativeLoad { .. }
             | Expression::CooperativeMultiplyAdd { .. } => {
