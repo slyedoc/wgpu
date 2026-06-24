@@ -3240,6 +3240,14 @@ impl Writer {
                         self.use_extension("SPV_NV_cluster_acceleration_structure");
                         BuiltIn::ClusterIDNV
                     }
+                    Bi::HitTriangleVertexPositions => {
+                        self.require_any(
+                            "`hit_triangle_vertex_positions` built-in",
+                            &[spirv::Capability::RayTracingPositionFetchKHR],
+                        )?;
+                        self.use_extension("SPV_KHR_ray_tracing_position_fetch");
+                        BuiltIn::HitTriangleVertexPositionsKHR
+                    }
                     Bi::GeometryIndex => BuiltIn::RayGeometryIndexKHR,
                     Bi::WorldRayOrigin => BuiltIn::WorldRayOriginKHR,
                     Bi::WorldRayDirection => BuiltIn::WorldRayDirectionKHR,

@@ -729,6 +729,7 @@ impl ResolvedBinding {
                     | Bi::InstanceCustomData
                     | Bi::RayInstanceId
                     | Bi::ClusterId
+                    | Bi::HitTriangleVertexPositions
                     | Bi::GeometryIndex
                     | Bi::WorldRayOrigin
                     | Bi::WorldRayDirection

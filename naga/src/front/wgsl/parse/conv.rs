@@ -157,6 +157,7 @@ pub fn map_built_in(
         "instance_custom_data" => crate::BuiltIn::InstanceCustomData,
         "instance_id" => crate::BuiltIn::RayInstanceId,
         "cluster_id" => crate::BuiltIn::ClusterId,
+        "hit_triangle_vertex_positions" => crate::BuiltIn::HitTriangleVertexPositions,
         "geometry_index" => crate::BuiltIn::GeometryIndex,
         "world_ray_origin" => crate::BuiltIn::WorldRayOrigin,
         "world_ray_direction" => crate::BuiltIn::WorldRayDirection,

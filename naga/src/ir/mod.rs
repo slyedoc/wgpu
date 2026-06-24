@@ -519,6 +519,13 @@ pub enum BuiltIn {
     /// data, with [`PrimitiveIndex`](Self::PrimitiveIndex) being the triangle
     /// within that cluster.
     ClusterId,
+    /// Read in closest hit and any hit shaders against an acceleration structure
+    /// built with `ALLOW_DATA_ACCESS`: the three object-space vertex positions of
+    /// the hit triangle (SPIR-V `HitTriangleVertexPositionsKHR`). Typed
+    /// `array<vec3<f32>, 3>`. Lets the hit shader reconstruct the geometric normal
+    /// / hit position straight from the AS, without re-fetching positions from a
+    /// vertex buffer.
+    HitTriangleVertexPositions,
     /// Read in closest hit, any hit, and miss shaders, the origin of the ray.
     WorldRayOrigin,
     /// Read in closest hit, any hit, and miss shaders, the direction of the

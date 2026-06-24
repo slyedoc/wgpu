@@ -200,6 +200,7 @@ impl TryToWgsl for crate::BuiltIn {
             Bi::InstanceCustomData => "instance_custom_data",
             Bi::RayInstanceId => "instance_id",
             Bi::ClusterId => "cluster_id",
+            Bi::HitTriangleVertexPositions => "hit_triangle_vertex_positions",
             Bi::GeometryIndex => "geometry_index",
             Bi::WorldRayOrigin => "world_ray_origin",
             Bi::WorldRayDirection => "world_ray_direction",

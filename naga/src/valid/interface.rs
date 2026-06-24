@@ -516,6 +516,36 @@ impl VaryingContext<'_> {
                         },
                         *ty_inner == Ti::Scalar(crate::Scalar::U32),
                     ),
+                    Bi::HitTriangleVertexPositions => (
+                        match self.stage {
+                            St::RayGeneration
+                            | St::Miss
+                            | St::Vertex
+                            | St::Fragment
+                            | St::Compute
+                            | St::Mesh
+                            | St::Task => false,
+                            St::AnyHit | St::ClosestHit => true,
+                        },
+                        // `array<vec3<f32>, 3>` — the hit triangle's three
+                        // object-space vertex positions.
+                        match *ty_inner {
+                            Ti::Array { base, size, .. } => {
+                                self.types[base].inner
+                                    == Ti::Vector {
+                                        size: Vs::Tri,
+                                        scalar: crate::Scalar::F32,
+                                    }
+                                    && match size {
+                                        crate::ArraySize::Constant(non_zero) => {
+                                            non_zero.get() == 3
+                                        }
+                                        _ => false,
+                                    }
+                            }
+                            _ => false,
+                        },
+                    ),
                     Bi::GeometryIndex => (
                         match self.stage {
                             St::RayGeneration
