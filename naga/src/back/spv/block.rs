@@ -2133,8 +2133,15 @@ impl BlockContext<'_> {
                 self.writer
                     .require_any("`shader_clock`", &[spirv::Capability::ShaderClockKHR])?;
                 self.writer.use_extension("SPV_KHR_shader_clock");
-                // Subgroup scope (`Scope::Subgroup` == 3) — `shaderSubgroupClock`.
-                let scope_id = self.get_scope_constant(spirv::Scope::Subgroup as u32);
+                // Device scope (`Scope::Device` == 1) — `shaderDeviceClock`. Device,
+                // not Subgroup: the clock must be globally monotonic across SMs.
+                // Callers (e.g. the solari cost heatmap) read it around a
+                // Shader-Execution-Reordering boundary (`reorderThread` /
+                // `hitObjectExecuteShader`), which migrates the invocation to a
+                // different subgroup/SM — a subgroup-scoped clock would then
+                // subtract two unrelated SM counters (block-structured garbage).
+                // Requires the `shaderDeviceClock` device feature to be enabled.
+                let scope_id = self.get_scope_constant(spirv::Scope::Device as u32);
                 let id = self.gen_id();
                 block
                     .body
