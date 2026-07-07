@@ -594,14 +594,6 @@ enum LookupRayQueryFunction {
     Terminate,
 }
 
-// Just one supported function right now, more in the future.
-#[derive(Debug, PartialEq, Clone, Hash, Eq)]
-enum LookupRaytracingFunction {
-    TraceRay {
-        payload: Handle<crate::GlobalVariable>,
-    },
-}
-
 #[derive(Debug)]
 enum Dimension {
     Scalar,
@@ -971,7 +963,6 @@ pub struct Writer {
 
     ray_query_functions: crate::FastHashMap<LookupRayQueryFunction, Word>,
 
-    ray_tracing_functions: crate::FastHashMap<LookupRaytracingFunction, Word>,
 
     has_ray_tracing_pipeline: bool,
 

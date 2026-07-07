@@ -112,7 +112,6 @@ impl Writer {
             gl450_ext_inst_id,
             temp_list: Vec::new(),
             ray_query_functions: crate::FastHashMap::default(),
-            ray_tracing_functions: crate::FastHashMap::default(),
             has_ray_tracing_pipeline: false,
             io_f16_polyfills: super::f16_polyfill::F16IoPolyfill::new(
                 options.use_storage_input_output_16,
@@ -207,7 +206,6 @@ impl Writer {
             saved_cached: take(&mut self.saved_cached).reclaim(),
             temp_list: take(&mut self.temp_list).reclaim(),
             ray_query_functions: take(&mut self.ray_query_functions).reclaim(),
-            ray_tracing_functions: take(&mut self.ray_tracing_functions).reclaim(),
             has_ray_tracing_pipeline: false,
             io_f16_polyfills: take(&mut self.io_f16_polyfills).reclaim(),
             debug_printf: None,

@@ -16,6 +16,11 @@ fn ray_gen_main(@builtin(ray_invocation_id) id: vec3<u32>, @builtin(num_ray_invo
     let shift = vec3<f32>(id) / vec3<f32>(num_invocations);
     let ray_shift = (vec3(shift.x, 0.0, shift.y) * 2.0) - 1.0;
     traceRay(acc_struct, RayDesc(RAY_FLAG_NONE, 0xff, 0.01, 100.0, vec3(0.0), vec3(0.0, 1.0, 0.0) + ray_shift), &hit_num);
+    // Second live call site: must emit a second inline OpTraceRayKHR (a shared
+    // per-payload helper called twice miscompiles on NVIDIA — black scene/hang).
+    if id.x == 0u {
+        traceRay(acc_struct, RayDesc(RAY_FLAG_TERMINATE_ON_FIRST_HIT, 0xff, 0.01, 50.0, vec3(1.0), vec3(0.0, -1.0, 0.0)), &hit_num);
+    }
 }
 
 var<incoming_ray_payload> incoming_hit_num: HitCounters;

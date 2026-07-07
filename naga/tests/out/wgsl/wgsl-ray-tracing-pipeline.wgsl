@@ -25,7 +25,12 @@ fn ray_gen_main(@builtin(ray_invocation_id) id: vec3<u32>, @builtin(num_ray_invo
     let shift = (vec3<f32>(id) / vec3<f32>(num_invocations));
     let ray_shift = ((vec3<f32>(shift.x, 0f, shift.y) * 2f) - vec3(1f));
     traceRay(acc_struct, RayDesc(0u, 255u, 0.01f, 100f, vec3(0f), (vec3<f32>(0f, 1f, 0f) + ray_shift)), (&hit_num));
-    return;
+    if (id.x == 0u) {
+        traceRay(acc_struct, RayDesc(4u, 255u, 0.01f, 50f, vec3(1f), vec3<f32>(0f, -1f, 0f)), (&hit_num));
+        return;
+    } else {
+        return;
+    }
 }
 
 @miss @incoming_payload(incoming_hit_num) 

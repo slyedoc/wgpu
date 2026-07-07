@@ -1,134 +1,6 @@
 //! Code for ray tracing pipelines
 
-use crate::back::spv::{
-    Block, BlockContext, Instruction, LocalType, LookupRaytracingFunction, Writer, WriterFlags,
-};
-
-impl Writer {
-    fn write_trace_ray(
-        &mut self,
-        ir_module: &crate::Module,
-        payload: crate::Handle<crate::GlobalVariable>,
-    ) -> spirv::Word {
-        if let Some(&word) = self
-            .ray_tracing_functions
-            .get(&LookupRaytracingFunction::TraceRay { payload })
-        {
-            return word;
-        }
-
-        let acceleration_structure_type_id =
-            self.get_localtype_id(LocalType::AccelerationStructure);
-
-        let ray_desc_type_id = self.get_handle_type_id(
-            ir_module
-                .special_types
-                .ray_desc
-                .expect("ray desc should be set if `traceRays` is called"),
-        );
-
-        let u32_type_id = self.get_u32_type_id();
-        let (func_id, mut function, arg_ids) = self.write_function_signature(
-            &[
-                acceleration_structure_type_id,
-                ray_desc_type_id,
-                // sbt_record_offset, sbt_record_stride, miss_index (all u32). Passed
-                // per-call so one cached helper serves every traceRay for this payload.
-                u32_type_id,
-                u32_type_id,
-                u32_type_id,
-            ],
-            self.void_type,
-        );
-
-        let acceleration_structure_id = arg_ids[0];
-        let desc_id = arg_ids[1];
-        let sbt_record_offset_id = arg_ids[2];
-        let sbt_record_stride_id = arg_ids[3];
-        let miss_index_id = arg_ids[4];
-        let payload_id = self.global_variables[payload].access_id;
-
-        let label_id = self.id_gen.next();
-        let mut block = Block::new(label_id);
-
-        let super::ExtractedRayDesc {
-            ray_flags_id,
-            cull_mask_id,
-            tmin_id,
-            tmax_id,
-            ray_origin_id,
-            ray_dir_id,
-            valid_id,
-        } = self.write_extract_ray_desc(&mut block, desc_id, self.trace_ray_argument_validation);
-
-        let merge_label_id = self.id_gen.next();
-        let merge_block = Block::new(merge_label_id);
-
-        // NOTE: this block will be unreachable if trace ray validation is disabled.
-        let invalid_label_id = self.id_gen.next();
-        let mut invalid_block = Block::new(invalid_label_id);
-
-        let valid_label_id = self.id_gen.next();
-        let mut valid_block = Block::new(valid_label_id);
-
-        match valid_id {
-            Some(all_valid_id) => {
-                block.body.push(Instruction::selection_merge(
-                    merge_label_id,
-                    spirv::SelectionControl::NONE,
-                ));
-                function.consume(
-                    block,
-                    Instruction::branch_conditional(all_valid_id, valid_label_id, invalid_label_id),
-                );
-            }
-            None => {
-                function.consume(block, Instruction::branch(valid_label_id));
-            }
-        }
-
-        valid_block.body.push(Instruction::trace_ray(
-            acceleration_structure_id,
-            ray_flags_id,
-            cull_mask_id,
-            sbt_record_offset_id,
-            sbt_record_stride_id,
-            miss_index_id,
-            ray_origin_id,
-            tmin_id,
-            ray_dir_id,
-            tmax_id,
-            payload_id,
-        ));
-
-        function.consume(valid_block, Instruction::branch(merge_label_id));
-
-        if self.flags.contains(WriterFlags::PRINT_ON_TRACE_RAYS_FAIL) {
-            self.write_debug_printf(
-                &mut invalid_block,
-                "Naga ignored invalid arguments to traceRay with flags: %u t_min: %f t_max: %f origin: %v4f dir: %v4f",
-                &[
-                    ray_flags_id,
-                    tmin_id,
-                    tmax_id,
-                    ray_origin_id,
-                    ray_dir_id,
-                ],
-            );
-        }
-
-        function.consume(invalid_block, Instruction::branch(merge_label_id));
-
-        function.consume(merge_block, Instruction::return_void());
-
-        function.to_words(&mut self.logical_layout.function_definitions);
-
-        self.ray_tracing_functions
-            .insert(LookupRaytracingFunction::TraceRay { payload }, func_id);
-
-        func_id
-    }
-}
+use crate::back::spv::{selection::Selection, Block, BlockContext, Instruction, WriterFlags};
 
 impl BlockContext<'_> {
     pub(in super::super) fn write_ray_tracing_pipeline_function(
@@ -145,13 +17,7 @@ impl BlockContext<'_> {
                 sbt_record_stride,
                 miss_index,
             } => {
-                // Checked for when validating the module in `validate_block_impl`.
-                let crate::Expression::GlobalVariable(payload) =
-                    self.ir_function.expressions[payload]
-                else {
-                    unreachable!()
-                };
-
+                let payload_id = self.payload_access_id(payload);
                 let desc_id = self.cached[descriptor];
                 let acc_struct_id = self.get_handle_id(acceleration_structure);
                 // Default any omitted SBT operand to 0 (the plain `traceRay` form).
@@ -160,21 +26,66 @@ impl BlockContext<'_> {
                 let sbt_record_stride_id = sbt_record_stride.map_or(zero, |h| self.cached[h]);
                 let miss_index_id = miss_index.map_or(zero, |h| self.cached[h]);
 
-                let func = self.writer.write_trace_ray(self.ir_module, payload);
+                // Emitted INLINE at every call site (exactly like `hitObjectTraceRay`
+                // below), never via a shared per-payload helper function: an
+                // `OpTraceRayKHR` inside a callee reached from two live call sites is
+                // a shape no other toolchain produces, and NVIDIA's RT compiler
+                // miscompiles it (two-site closest-hit = black scene or hang; one
+                // site in a loop was fine — the trivial single-call inline).
+                let super::ExtractedRayDesc {
+                    ray_flags_id,
+                    cull_mask_id,
+                    tmin_id,
+                    tmax_id,
+                    ray_origin_id,
+                    ray_dir_id,
+                    valid_id,
+                } = self.writer.write_extract_ray_desc(
+                    block,
+                    desc_id,
+                    self.writer.trace_ray_argument_validation,
+                );
 
-                let func_id = self.gen_id();
-                block.body.push(Instruction::function_call(
-                    self.writer.void_type,
-                    func_id,
-                    func,
-                    &[
-                        acc_struct_id,
-                        desc_id,
-                        sbt_record_offset_id,
-                        sbt_record_stride_id,
-                        miss_index_id,
-                    ],
-                ));
+                let trace = Instruction::trace_ray(
+                    acc_struct_id,
+                    ray_flags_id,
+                    cull_mask_id,
+                    sbt_record_offset_id,
+                    sbt_record_stride_id,
+                    miss_index_id,
+                    ray_origin_id,
+                    tmin_id,
+                    ray_dir_id,
+                    tmax_id,
+                    payload_id,
+                );
+                match valid_id {
+                    Some(all_valid_id) => {
+                        if self.writer.flags.contains(WriterFlags::PRINT_ON_TRACE_RAYS_FAIL) {
+                            let bool_type_id = self.writer.get_bool_type_id();
+                            let not_valid_id = self.gen_id();
+                            block.body.push(Instruction::unary(
+                                spirv::Op::LogicalNot,
+                                bool_type_id,
+                                not_valid_id,
+                                all_valid_id,
+                            ));
+                            let mut printf = Selection::start(block, ());
+                            printf.if_true(self, not_valid_id, ());
+                            self.writer.write_debug_printf(
+                                printf.block(),
+                                "Naga ignored invalid arguments to traceRay with flags: %u t_min: %f t_max: %f origin: %v4f dir: %v4f",
+                                &[ray_flags_id, tmin_id, tmax_id, ray_origin_id, ray_dir_id],
+                            );
+                            printf.finish(self, ());
+                        }
+                        let mut trace_sel = Selection::start(block, ());
+                        trace_sel.if_true(self, all_valid_id, ());
+                        trace_sel.block().body.push(trace);
+                        trace_sel.finish(self, ());
+                    }
+                    None => block.body.push(trace),
+                }
             }
             crate::RayPipelineFunction::HitObjectTraceRay {
                 hit_object,
