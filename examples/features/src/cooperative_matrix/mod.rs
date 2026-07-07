@@ -76,17 +76,20 @@ async fn run() {
         );
     }
 
-    // Find a suitable configuration - prefer f32, but accept f16
-    // Try 16x16 first (AMD), then 8x8 (Apple Metal)
-    let selected_config = coop_props
-        .iter()
-        .find(|prop| {
+    // Find a suitable configuration - prefer mixed precision (f16 in, f32
+    // accumulate — NVIDIA/AMD tensor-core shape), then all-f16 16x16, then
+    // 8x8 f32 (Apple Metal)
+    let find_16 = |cr: wgpu::CooperativeScalarType| {
+        coop_props.iter().find(move |prop| {
             prop.m_size == 16
                 && prop.n_size == 16
                 && prop.k_size == 16
                 && prop.ab_type == wgpu::CooperativeScalarType::F16
-                && prop.cr_type == wgpu::CooperativeScalarType::F16
+                && prop.cr_type == cr
         })
+    };
+    let selected_config = find_16(wgpu::CooperativeScalarType::F32)
+        .or_else(|| find_16(wgpu::CooperativeScalarType::F16))
         .or_else(|| {
             coop_props.iter().find(|prop| {
                 prop.m_size == 8
@@ -205,12 +208,13 @@ async fn execute(
     config: &wgpu::CooperativeMatrixProperties,
 ) -> ExecuteResults {
     let use_f16 = config.ab_type == wgpu::CooperativeScalarType::F16;
+    let acc_f16 = config.cr_type == wgpu::CooperativeScalarType::F16;
 
     // Select the appropriate shader based on configuration
-    let shader_source = if use_f16 {
-        include_str!("shader_f16_16x16.wgsl")
-    } else {
-        include_str!("shader.wgsl")
+    let shader_source = match (use_f16, acc_f16) {
+        (true, true) => include_str!("shader_f16_16x16.wgsl"),
+        (true, false) => include_str!("shader_f16_16x16_f32acc.wgsl"),
+        (false, _) => include_str!("shader.wgsl"),
     };
 
     // Create the shader module using the standard validated path
@@ -226,8 +230,9 @@ async fn execute(
     let matrix_b_f32: Vec<f32> = (0..K * N).map(|i| (i % 11) as f32 * 0.1).collect();
     let matrix_c_f32: Vec<f32> = vec![0.0; (M * N) as usize];
 
-    // Element size depends on precision
+    // Element size depends on precision (A/B follow ab_type, C follows cr_type)
     let element_size = if use_f16 { 2usize } else { 4usize };
+    let element_size_c = if acc_f16 { 2usize } else { 4usize };
     let num_elements_a = (M * K) as usize;
     let num_elements_b = (K * N) as usize;
     let num_elements_c = (M * N) as usize;
@@ -249,7 +254,7 @@ async fn execute(
 
     let buffer_c = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Matrix C"),
-        size: (num_elements_c * element_size) as u64,
+        size: (num_elements_c * element_size_c) as u64,
         usage: wgpu::BufferUsages::STORAGE
             | wgpu::BufferUsages::COPY_DST
             | wgpu::BufferUsages::COPY_SRC,
@@ -271,7 +276,7 @@ async fn execute(
 
     let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Staging Buffer"),
-        size: (num_elements_c * element_size) as u64,
+        size: (num_elements_c * element_size_c) as u64,
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -280,13 +285,16 @@ async fn execute(
     if use_f16 {
         let matrix_a_f16: Vec<f16> = matrix_a_f32.iter().map(|&x| f16::from_f32(x)).collect();
         let matrix_b_f16: Vec<f16> = matrix_b_f32.iter().map(|&x| f16::from_f32(x)).collect();
-        let matrix_c_f16: Vec<f16> = matrix_c_f32.iter().map(|&x| f16::from_f32(x)).collect();
         queue.write_buffer(&buffer_a, 0, bytemuck::cast_slice(&matrix_a_f16));
         queue.write_buffer(&buffer_b, 0, bytemuck::cast_slice(&matrix_b_f16));
-        queue.write_buffer(&buffer_c, 0, bytemuck::cast_slice(&matrix_c_f16));
     } else {
         queue.write_buffer(&buffer_a, 0, bytemuck::cast_slice(&matrix_a_f32));
         queue.write_buffer(&buffer_b, 0, bytemuck::cast_slice(&matrix_b_f32));
+    }
+    if acc_f16 {
+        let matrix_c_f16: Vec<f16> = matrix_c_f32.iter().map(|&x| f16::from_f32(x)).collect();
+        queue.write_buffer(&buffer_c, 0, bytemuck::cast_slice(&matrix_c_f16));
+    } else {
         queue.write_buffer(&buffer_c, 0, bytemuck::cast_slice(&matrix_c_f32));
     }
     queue.write_buffer(&buffer_dims, 0, bytemuck::bytes_of(&dimensions));
@@ -414,7 +422,7 @@ async fn execute(
     let data = buffer_slice.get_mapped_range();
 
     // Convert result back to f32 for comparison
-    let result: Vec<f32> = if use_f16 {
+    let result: Vec<f32> = if acc_f16 {
         let result_f16: &[f16] = bytemuck::cast_slice(&data);
         result_f16.iter().map(|x| x.to_f32()).collect()
     } else {

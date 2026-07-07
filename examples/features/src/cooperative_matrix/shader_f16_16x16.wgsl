@@ -6,7 +6,8 @@
 // This variant uses 16x16 tiles with f16 precision, which is supported
 // on AMD GPUs via VK_KHR_cooperative_matrix.
 //
-// The matrices are stored in row-major order in storage buffers.
+// The matrices are stored in row-major order in storage buffers, hence the
+// T-suffixed load/store builtins (the unsuffixed ones are column-major).
 // Each workgroup cooperatively loads tiles of A and B, multiplies them,
 // and accumulates the result into C.
 
@@ -44,22 +45,22 @@ fn main(@builtin(workgroup_id) workgroup_id: vec3<u32>) {
 
     // Load the C tile (accumulator)
     let c_offset = tile_row * stride + tile_col;
-    var c_tile = coopLoad<coop_mat16x16<f16, C>>(&matrix_c[c_offset], stride);
+    var c_tile = coopLoadT<coop_mat16x16<f16, C>>(&matrix_c[c_offset], stride);
 
     // Iterate over K dimension in tiles
     for (var k: u32 = 0u; k < K; k += TILE_SIZE) {
         // Load A tile: rows [tile_row, tile_row+16), cols [k, k+16)
         let a_offset = tile_row * K + k;
-        let a_tile = coopLoad<coop_mat16x16<f16, A>>(&matrix_a[a_offset], K);
+        let a_tile = coopLoadT<coop_mat16x16<f16, A>>(&matrix_a[a_offset], K);
 
         // Load B tile: rows [k, k+16), cols [tile_col, tile_col+16)
         let b_offset = k * stride + tile_col;
-        let b_tile = coopLoad<coop_mat16x16<f16, B>>(&matrix_b[b_offset], stride);
+        let b_tile = coopLoadT<coop_mat16x16<f16, B>>(&matrix_b[b_offset], stride);
 
         // Multiply and accumulate: C += A * B
         c_tile = coopMultiplyAdd(a_tile, b_tile, c_tile);
     }
 
     // Store the result back to C
-    coopStore(c_tile, &matrix_c[c_offset], stride);
+    coopStoreT(c_tile, &matrix_c[c_offset], stride);
 }
