@@ -660,7 +660,10 @@ impl PhysicalDeviceFeatures {
                 );
                 Some(
                     vk::PhysicalDeviceVulkanMemoryModelFeaturesKHR::default()
-                        .vulkan_memory_model(needed),
+                        .vulkan_memory_model(needed)
+                        // naga's SPIR-V uses Device scope under the Vulkan
+                        // memory model (VUID-RuntimeSpirv-vulkanMemoryModel-06265)
+                        .vulkan_memory_model_device_scope(needed),
                 )
             } else {
                 None
