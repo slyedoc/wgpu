@@ -654,8 +654,10 @@ impl PhysicalDeviceFeatures {
             vulkan_memory_model: if device_api_version >= vk::API_VERSION_1_2
                 || enabled_extensions.contains(&khr::vulkan_memory_model::NAME)
             {
-                let needed =
-                    requested_features.contains(wgt::Features::EXPERIMENTAL_COOPERATIVE_MATRIX);
+                let needed = requested_features.intersects(
+                    wgt::Features::EXPERIMENTAL_COOPERATIVE_MATRIX
+                        | wgt::Features::EXPERIMENTAL_COOPERATIVE_VECTOR,
+                );
                 Some(
                     vk::PhysicalDeviceVulkanMemoryModelFeaturesKHR::default()
                         .vulkan_memory_model(needed),
