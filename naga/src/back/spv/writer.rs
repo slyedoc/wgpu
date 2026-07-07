@@ -485,7 +485,8 @@ impl Writer {
                 // these cases, so unwrap.
                 LocalType::Numeric(NumericType::from_inner(inner).unwrap())
             }
-            crate::TypeInner::CooperativeMatrix { .. } => {
+            crate::TypeInner::CooperativeMatrix { .. }
+            | crate::TypeInner::CooperativeVector { .. } => {
                 LocalType::Cooperative(CooperativeType::from_inner(inner).unwrap())
             }
             crate::TypeInner::Pointer { base, space } => {
@@ -2026,6 +2027,15 @@ impl Writer {
                 self.use_extension("SPV_KHR_cooperative_matrix");
                 self.use_extension("SPV_KHR_vulkan_memory_model");
             }
+            crate::TypeInner::CooperativeVector { .. } => {
+                self.require_any(
+                    "cooperative vector",
+                    &[spirv::Capability::CooperativeVectorNV],
+                )?;
+                self.require_any("memory model", &[spirv::Capability::VulkanMemoryModel])?;
+                self.use_extension("SPV_NV_cooperative_vector");
+                self.use_extension("SPV_KHR_vulkan_memory_model");
+            }
             _ => {}
         }
         Ok(())
@@ -2068,6 +2078,12 @@ impl Writer {
                 let role_id =
                     self.get_index_constant(spirv::CooperativeMatrixUse::from(role) as u32);
                 Instruction::type_coop_matrix(id, scalar_id, scope_id, rows_id, columns_id, role_id)
+            }
+            CooperativeType::Vector { size, scalar } => {
+                let scalar_id =
+                    self.get_localtype_id(LocalType::Numeric(NumericType::Scalar(scalar)));
+                let count_id = self.get_index_constant(size as u32);
+                Instruction::type_coop_vector(id, scalar_id, count_id)
             }
         };
 
@@ -2202,6 +2218,7 @@ impl Writer {
                 | crate::TypeInner::Vector { .. }
                 | crate::TypeInner::Matrix { .. }
                 | crate::TypeInner::CooperativeMatrix { .. }
+                | crate::TypeInner::CooperativeVector { .. }
                 | crate::TypeInner::Pointer { .. }
                 | crate::TypeInner::ValuePointer { .. }
                 | crate::TypeInner::Image { .. }

@@ -1,7 +1,7 @@
 use alloc::{borrow::ToOwned as _, boxed::Box, collections::BTreeMap, sync::Arc, vec::Vec};
 use core::{ffi::CStr, marker::PhantomData};
 
-use ash::{ext, google, khr, vk};
+use ash::{ext, google, khr, nv, vk};
 use ash::vk::TaggedStructure;
 use parking_lot::Mutex;
 
@@ -140,6 +140,9 @@ pub struct PhysicalDeviceFeatures {
     /// Features provided by `VK_KHR_cooperative_matrix`
     cooperative_matrix: Option<vk::PhysicalDeviceCooperativeMatrixFeaturesKHR<'static>>,
 
+    /// Features provided by `VK_NV_cooperative_vector`
+    cooperative_vector: Option<vk::PhysicalDeviceCooperativeVectorFeaturesNV<'static>>,
+
     /// Features provided by `VK_KHR_vulkan_memory_model`, promoted to Vulkan 1.2
     vulkan_memory_model: Option<vk::PhysicalDeviceVulkanMemoryModelFeaturesKHR<'static>>,
 
@@ -252,6 +255,9 @@ impl PhysicalDeviceFeatures {
             info = info.push(feature);
         }
         if let Some(ref mut feature) = self.cooperative_matrix {
+            info = info.push(feature);
+        }
+        if let Some(ref mut feature) = self.cooperative_vector {
             info = info.push(feature);
         }
         if let Some(ref mut feature) = self.vulkan_memory_model {
@@ -620,6 +626,17 @@ impl PhysicalDeviceFeatures {
                 Some(
                     vk::PhysicalDevicePortabilitySubsetFeaturesKHR::default()
                         .multisample_array_image(multisample_array_needed),
+                )
+            } else {
+                None
+            },
+            cooperative_vector: if enabled_extensions.contains(&nv::cooperative_vector::NAME) {
+                let needed =
+                    requested_features.contains(wgt::Features::EXPERIMENTAL_COOPERATIVE_VECTOR);
+                Some(
+                    vk::PhysicalDeviceCooperativeVectorFeaturesNV::default()
+                        .cooperative_vector(needed)
+                        .cooperative_vector_training(needed),
                 )
             } else {
                 None
@@ -1076,6 +1093,12 @@ impl PhysicalDeviceFeatures {
             F::EXPERIMENTAL_COOPERATIVE_MATRIX,
             !caps.cooperative_matrix_properties.is_empty(),
         );
+        features.set(
+            F::EXPERIMENTAL_COOPERATIVE_VECTOR,
+            self.cooperative_vector
+                .map(|f| f.cooperative_vector == vk::TRUE)
+                .unwrap_or_default(),
+        );
 
         features.set(
             F::SHADER_DRAW_INDEX,
@@ -1397,6 +1420,11 @@ impl PhysicalDeviceProperties {
         // Require `VK_KHR_cooperative_matrix` if the associated feature was requested
         if requested_features.contains(wgt::Features::EXPERIMENTAL_COOPERATIVE_MATRIX) {
             extensions.push(khr::cooperative_matrix::NAME);
+        }
+
+        // Require `VK_NV_cooperative_vector` if the associated feature was requested
+        if requested_features.contains(wgt::Features::EXPERIMENTAL_COOPERATIVE_VECTOR) {
+            extensions.push(nv::cooperative_vector::NAME);
         }
 
         extensions
@@ -2085,6 +2113,13 @@ impl super::InstanceShared {
                 features2 = features2.push(next);
             }
 
+            if capabilities.supports_extension(nv::cooperative_vector::NAME) {
+                let next = features
+                    .cooperative_vector
+                    .insert(vk::PhysicalDeviceCooperativeVectorFeaturesNV::default());
+                features2 = features2.push(next);
+            }
+
             if capabilities.device_api_version >= vk::API_VERSION_1_1 {
                 let next = features
                     .shader_draw_parameters
@@ -2660,6 +2695,11 @@ impl super::Adapter {
             if features.contains(wgt::Features::EXPERIMENTAL_COOPERATIVE_MATRIX) {
                 capabilities.push(spv::Capability::CooperativeMatrixKHR);
                 // TODO: expose this more generally
+                capabilities.push(spv::Capability::VulkanMemoryModel);
+            }
+            if features.contains(wgt::Features::EXPERIMENTAL_COOPERATIVE_VECTOR) {
+                capabilities.push(spv::Capability::CooperativeVectorNV);
+                capabilities.push(spv::Capability::CooperativeVectorTrainingNV);
                 capabilities.push(spv::Capability::VulkanMemoryModel);
             }
             if self.private_caps.shader_integer_dot_product {

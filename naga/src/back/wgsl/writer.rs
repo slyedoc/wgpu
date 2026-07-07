@@ -1173,6 +1173,19 @@ impl<W: Write> Writer<W> {
                 }
                 writeln!(self.out, ");")?;
             }
+            Statement::CooperativeVectorStore {
+                pointer,
+                offset,
+                value,
+            } => {
+                write!(self.out, "{level}coopVecStore(")?;
+                self.write_expr(module, value, func_ctx)?;
+                write!(self.out, ", ")?;
+                self.write_expr(module, pointer, func_ctx)?;
+                write!(self.out, ", ")?;
+                self.write_expr(module, offset, func_ctx)?;
+                writeln!(self.out, ");")?
+            }
             Statement::CooperativeStore { target, ref data } => {
                 let suffix = if data.row_major { "T" } else { "" };
                 write!(self.out, "{level}coopStore{suffix}(")?;
@@ -2027,6 +2040,45 @@ impl<W: Write> Writer<W> {
                 self.write_expr(module, b, func_ctx)?;
                 write!(self.out, ", ")?;
                 self.write_expr(module, c, func_ctx)?;
+                write!(self.out, ")")?;
+            }
+            Expression::CooperativeVectorOp {
+                op,
+                size,
+                scalar,
+                a,
+                b,
+                c,
+                d,
+                e,
+            } => {
+                use crate::CooperativeVectorOpKind as Cv;
+                let name = match op {
+                    Cv::Splat => "coopVecSplat",
+                    Cv::Load => "coopVecLoad",
+                    Cv::Insert => "coopVecInsert",
+                    Cv::Extract => "coopVecExtract",
+                    Cv::MatMulAdd => "coopVecMatMulAdd",
+                    Cv::Max => "coopVecMax",
+                };
+                write!(self.out, "{name}")?;
+                if matches!(op, Cv::Splat | Cv::Load | Cv::MatMulAdd) {
+                    write!(
+                        self.out,
+                        "<coop_vec{}<{}>>",
+                        size as u32,
+                        scalar.try_to_wgsl().unwrap(),
+                    )?;
+                }
+                write!(self.out, "(")?;
+                let mut first = true;
+                for operand in [a, b, c, d, e].into_iter().flatten() {
+                    if !first {
+                        write!(self.out, ", ")?;
+                    }
+                    first = false;
+                    self.write_expr(module, operand, func_ctx)?;
+                }
                 write!(self.out, ")")?;
             }
         }

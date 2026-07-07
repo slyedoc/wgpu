@@ -442,6 +442,9 @@ pub enum TypeGenerator {
         columns: crate::CooperativeSize,
         rows: crate::CooperativeSize,
     },
+    CooperativeVector {
+        size: crate::CooperativeVectorSize,
+    },
 }
 
 pub enum PredeclaredType {
@@ -583,6 +586,11 @@ pub fn map_predeclared_type(
             columns: crate::CooperativeSize::Sixteen,
             rows: crate::CooperativeSize::Sixteen,
         }.into(),
+        // cooperative vector (SPV_NV_cooperative_vector)
+        "coop_vec16" => TypeGenerator::CooperativeVector { size: crate::CooperativeVectorSize::Sixteen }.into(),
+        "coop_vec32" => TypeGenerator::CooperativeVector { size: crate::CooperativeVectorSize::ThirtyTwo }.into(),
+        "coop_vec64" => TypeGenerator::CooperativeVector { size: crate::CooperativeVectorSize::SixtyFour }.into(),
+        "coop_vec128" => TypeGenerator::CooperativeVector { size: crate::CooperativeVectorSize::OneTwentyEight }.into(),
         _ => return Ok(None),
     };
 
@@ -605,6 +613,9 @@ pub fn map_predeclared_type(
         }
         PredeclaredType::TypeGenerator(TypeGenerator::CooperativeMatrix { .. }) => {
             Some(&[ImplementedEnableExtension::WgpuCooperativeMatrix])
+        }
+        PredeclaredType::TypeGenerator(TypeGenerator::CooperativeVector { .. }) => {
+            Some(&[ImplementedEnableExtension::WgpuCooperativeVector])
         }
         _ => None,
     };

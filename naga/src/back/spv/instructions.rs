@@ -1455,6 +1455,90 @@ impl super::Instruction {
 
         instruction
     }
+
+    // Cooperative vector operations (SPV_NV_cooperative_vector)
+    pub(super) fn type_coop_vector(id: Word, scalar_type_id: Word, count_id: Word) -> Self {
+        let mut instruction = Self::new(Op::TypeCooperativeVectorNV);
+        instruction.set_result(id);
+        instruction.add_operand(scalar_type_id);
+        instruction.add_operand(count_id);
+        instruction
+    }
+    pub(super) fn coop_vec_load(
+        result_type_id: Word,
+        id: Word,
+        pointer_id: Word,
+        offset_id: Word,
+    ) -> Self {
+        let mut instruction = Self::new(Op::CooperativeVectorLoadNV);
+        instruction.set_type(result_type_id);
+        instruction.set_result(id);
+        instruction.add_operand(pointer_id);
+        instruction.add_operand(offset_id);
+        instruction
+    }
+    pub(super) fn coop_vec_store(pointer_id: Word, offset_id: Word, object_id: Word) -> Self {
+        let mut instruction = Self::new(Op::CooperativeVectorStoreNV);
+        instruction.add_operand(pointer_id);
+        instruction.add_operand(offset_id);
+        instruction.add_operand(object_id);
+        instruction
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn coop_vec_mat_mul_add(
+        result_type_id: Word,
+        id: Word,
+        input_id: Word,
+        input_interp_id: Word,
+        matrix_id: Word,
+        matrix_offset_id: Word,
+        matrix_interp_id: Word,
+        bias_id: Word,
+        bias_offset_id: Word,
+        bias_interp_id: Word,
+        m_id: Word,
+        k_id: Word,
+        layout_id: Word,
+        transpose_id: Word,
+        stride_id: Word,
+    ) -> Self {
+        let mut instruction = Self::new(Op::CooperativeVectorMatrixMulAddNV);
+        instruction.set_type(result_type_id);
+        instruction.set_result(id);
+        for operand in [
+            input_id,
+            input_interp_id,
+            matrix_id,
+            matrix_offset_id,
+            matrix_interp_id,
+            bias_id,
+            bias_offset_id,
+            bias_interp_id,
+            m_id,
+            k_id,
+            layout_id,
+            transpose_id,
+            stride_id,
+        ] {
+            instruction.add_operand(operand);
+        }
+        instruction
+    }
+    pub(super) fn vector_insert_dynamic(
+        result_type_id: Word,
+        id: Word,
+        vector_id: Word,
+        component_id: Word,
+        index_id: Word,
+    ) -> Self {
+        let mut instruction = Self::new(Op::VectorInsertDynamic);
+        instruction.set_type(result_type_id);
+        instruction.set_result(id);
+        instruction.add_operand(vector_id);
+        instruction.add_operand(component_id);
+        instruction.add_operand(index_id);
+        instruction
+    }
 }
 
 impl From<crate::StorageFormat> for spirv::ImageFormat {

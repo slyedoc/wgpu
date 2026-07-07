@@ -2839,7 +2839,8 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
                 }
                 writeln!(self.out, ");")?;
             }
-            Statement::CooperativeStore { .. } => unimplemented!(),
+            Statement::CooperativeStore { .. }
+            | Statement::CooperativeVectorStore { .. } => unimplemented!(),
             Statement::RayPipelineFunction(_) | Statement::RayTerminate(_) => unreachable!(),
         }
 
@@ -4389,7 +4390,8 @@ impl<'a, W: fmt::Write> super::Writer<'a, W> {
             | Expression::ReadClock
             | Expression::PhysicalLoad { .. }
             | Expression::CooperativeLoad { .. }
-            | Expression::CooperativeMultiplyAdd { .. } => {
+            | Expression::CooperativeMultiplyAdd { .. }
+            | Expression::CooperativeVectorOp { .. } => {
                 unreachable!()
             }
             // Nothing to do here, since call expression already cached

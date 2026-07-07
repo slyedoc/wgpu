@@ -601,6 +601,42 @@ pub enum CooperativeSize {
     Sixteen = 16,
 }
 
+/// Number of components in a cooperative vector (`SPV_NV_cooperative_vector`).
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "deserialize", derive(Deserialize))]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+pub enum CooperativeVectorSize {
+    Sixteen = 16,
+    ThirtyTwo = 32,
+    SixtyFour = 64,
+    OneTwentyEight = 128,
+}
+
+/// Operation performed by [`Expression::CooperativeVectorOp`].
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "deserialize", derive(Deserialize))]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+pub enum CooperativeVectorOpKind {
+    /// Broadcast scalar `a` to all components.
+    Splat,
+    /// Load from the storage array pointer `a` at element offset `b`.
+    Load,
+    /// Functional update: vector `a` with component at index `b` replaced by `c`.
+    Insert,
+    /// Read component at index `b` from vector `a`; yields a scalar.
+    Extract,
+    /// Matrix-vector multiply-add: input vector `a`, row-major matrix in the
+    /// storage array `b` at element offset `c`, bias in the storage array `d`
+    /// at element offset `e`. M and K come from the result and input sizes.
+    MatMulAdd,
+    /// Componentwise max of vectors `a` and `b`.
+    Max,
+}
+
 /// Primitive type for a scalar.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
@@ -914,6 +950,12 @@ pub enum TypeInner {
         rows: CooperativeSize,
         scalar: Scalar,
         role: CooperativeRole,
+    },
+    /// Per-invocation vector processed by tensor hardware
+    /// (`SPV_NV_cooperative_vector`); usable in any shader stage.
+    CooperativeVector {
+        size: CooperativeVectorSize,
+        scalar: Scalar,
     },
     /// Atomic scalar.
     Atomic(Scalar),
@@ -2030,6 +2072,23 @@ pub enum Expression {
         b: Handle<Expression>,
         c: Handle<Expression>,
     },
+
+    /// A cooperative-vector operation (`SPV_NV_cooperative_vector`).
+    ///
+    /// `size` and `scalar` describe the result vector type, except for
+    /// [`CooperativeVectorOpKind::Extract`] where the result is
+    /// `Scalar(scalar)`. Operand meaning per op is documented on
+    /// [`CooperativeVectorOpKind`].
+    CooperativeVectorOp {
+        op: CooperativeVectorOpKind,
+        size: CooperativeVectorSize,
+        scalar: Scalar,
+        a: Option<Handle<Expression>>,
+        b: Option<Handle<Expression>>,
+        c: Option<Handle<Expression>>,
+        d: Option<Handle<Expression>>,
+        e: Option<Handle<Expression>>,
+    },
 }
 
 /// The value of the switch case.
@@ -2482,6 +2541,13 @@ pub enum Statement {
     CooperativeStore {
         target: Handle<Expression>,
         data: CooperativeData,
+    },
+    /// Store a cooperative vector `value` to the storage array `pointer`
+    /// at element offset `offset`.
+    CooperativeVectorStore {
+        pointer: Handle<Expression>,
+        offset: Handle<Expression>,
+        value: Handle<Expression>,
     },
 }
 

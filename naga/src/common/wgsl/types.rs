@@ -317,6 +317,14 @@ where
             ctx.write_scalar(scalar, out)?;
             out.write_str(">")?;
         }
+        TypeInner::CooperativeVector { size, scalar } => {
+            write!(
+                out,
+                "coop_vec{}<{}>",
+                size as u32,
+                scalar.try_to_wgsl().unwrap_or_default(),
+            )?;
+        }
         TypeInner::CooperativeMatrix {
             columns,
             rows,

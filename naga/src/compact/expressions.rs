@@ -273,6 +273,11 @@ impl ExpressionTracer<'_> {
                 self.expressions_used.insert(b);
                 self.expressions_used.insert(c);
             }
+            Ex::CooperativeVectorOp { a, b, c, d, e, .. } => {
+                for operand in [a, b, c, d, e].into_iter().flatten() {
+                    self.expressions_used.insert(operand);
+                }
+            }
         }
     }
 }
@@ -463,6 +468,18 @@ impl ModuleMap {
                 adjust(a);
                 adjust(b);
                 adjust(c);
+            }
+            Ex::CooperativeVectorOp {
+                ref mut a,
+                ref mut b,
+                ref mut c,
+                ref mut d,
+                ref mut e,
+                ..
+            } => {
+                for operand in [a, b, c, d, e].iter_mut().filter_map(|o| o.as_mut()) {
+                    adjust(operand);
+                }
             }
         }
     }

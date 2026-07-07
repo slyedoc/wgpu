@@ -1385,6 +1385,23 @@ bitflags_array! {
         #[name("wgpu-cooperative-matrix")]
         const EXPERIMENTAL_COOPERATIVE_MATRIX = 1 << 57;
 
+        /// Enables cooperative vector operations (`VK_NV_cooperative_vector`):
+        /// per-invocation matrix-vector multiplies on tensor hardware, usable
+        /// in EVERY shader stage including ray tracing — the intended path for
+        /// inline neural-network inference (e.g. neural radiance caches).
+        ///
+        /// WGSL surface: `enable wgpu_cooperative_vector;`, `coop_vec{16,32,64,128}<f16|f32>`,
+        /// `coopVecSplat/Load/Store/Insert/Extract/Max/MatMulAdd`. Matrices are
+        /// row-major f16 in storage buffers; offsets are in elements and must
+        /// respect the extension's 64B/16B alignment rules.
+        ///
+        /// Supported platforms:
+        /// - Vulkan on NVIDIA (Turing+, driver 570+), via [VK_NV_cooperative_vector](https://registry.khronos.org/vulkan/specs/latest/man/html/VK_NV_cooperative_vector.html)
+        ///
+        /// This is a native only feature.
+        #[name("wgpu-cooperative-vector")]
+        const EXPERIMENTAL_COOPERATIVE_VECTOR = 1 << 63;
+
         /// Enables shader per-vertex attributes.
         ///
         /// Supported platforms:

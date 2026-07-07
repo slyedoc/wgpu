@@ -214,6 +214,8 @@ bitflags::bitflags! {
         const MEMORY_DECORATION_COHERENT = 1 << 41;
         /// Support for the `@volatile` memory decoration on storage buffers.
         const MEMORY_DECORATION_VOLATILE = 1 << 42;
+        /// Support for cooperative vector types and operations
+        const COOPERATIVE_VECTOR = 1 << 43;
     }
 }
 
@@ -516,6 +518,7 @@ impl crate::TypeInner {
             | Self::Vector { .. }
             | Self::Matrix { .. }
             | Self::CooperativeMatrix { .. }
+            | Self::CooperativeVector { .. }
             | Self::Array {
                 size: crate::ArraySize::Constant(_),
                 ..

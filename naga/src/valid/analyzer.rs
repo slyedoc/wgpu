@@ -875,6 +875,14 @@ impl FunctionInfo {
                 non_uniform_result: self.add_ref(a).or(self.add_ref(b).or(self.add_ref(c))),
                 requirements: UniformityRequirements::COOP_OPS,
             },
+            // Cooperative vectors are per-invocation: no uniformity demands.
+            E::CooperativeVectorOp { a, b, c, d, e, .. } => Uniformity {
+                non_uniform_result: [a, b, c, d, e]
+                    .into_iter()
+                    .flatten()
+                    .fold(None, |acc, h| acc.or(self.add_ref(h))),
+                requirements: UniformityRequirements::empty(),
+            },
         };
 
         let ty = resolve_context.resolve(expression, |h| Ok(&self[h].ty))?;
@@ -1214,6 +1222,20 @@ impl FunctionInfo {
                             .or(self.add_ref_impl(data.pointer, GlobalUse::WRITE))
                             .or(self.add_ref(data.stride)),
                         requirements: UniformityRequirements::COOP_OPS,
+                    },
+                    exit: ExitFlags::empty(),
+                },
+                S::CooperativeVectorStore {
+                    pointer,
+                    offset,
+                    value,
+                } => FunctionUniformity {
+                    result: Uniformity {
+                        non_uniform_result: self
+                            .add_ref_impl(pointer, GlobalUse::WRITE)
+                            .or(self.add_ref(offset))
+                            .or(self.add_ref(value)),
+                        requirements: UniformityRequirements::empty(),
                     },
                     exit: ExitFlags::empty(),
                 },

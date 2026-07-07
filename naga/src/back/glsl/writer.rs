@@ -535,7 +535,8 @@ impl<'a, W: Write> Writer<'a, W> {
             | TypeInner::RayQuery { .. }
             | TypeInner::HitObject
             | TypeInner::BindingArray { .. }
-            | TypeInner::CooperativeMatrix { .. } => {
+            | TypeInner::CooperativeMatrix { .. }
+            | TypeInner::CooperativeVector { .. } => {
                 return Err(Error::Custom(format!("Unable to write type {inner:?}")))
             }
         }
@@ -2255,7 +2256,8 @@ impl<'a, W: Write> Writer<'a, W> {
                 }
                 writeln!(self.out, ");")?;
             }
-            Statement::CooperativeStore { .. } => unimplemented!(),
+            Statement::CooperativeStore { .. }
+            | Statement::CooperativeVectorStore { .. } => unimplemented!(),
             Statement::RayPipelineFunction(_) | Statement::RayTerminate(_) => unimplemented!(),
         }
 
@@ -3798,7 +3800,8 @@ impl<'a, W: Write> Writer<'a, W> {
             | Expression::ReadClock
             | Expression::PhysicalLoad { .. }
             | Expression::CooperativeLoad { .. }
-            | Expression::CooperativeMultiplyAdd { .. } => unreachable!(),
+            | Expression::CooperativeMultiplyAdd { .. }
+            | Expression::CooperativeVectorOp { .. } => unreachable!(),
         }
 
         Ok(())

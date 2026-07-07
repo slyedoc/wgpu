@@ -160,6 +160,10 @@ pub fn features_to_naga_capabilities(
         features.intersects(wgt::Features::EXPERIMENTAL_COOPERATIVE_MATRIX),
     );
     caps.set(
+        Caps::COOPERATIVE_VECTOR,
+        features.intersects(wgt::Features::EXPERIMENTAL_COOPERATIVE_VECTOR),
+    );
+    caps.set(
         Caps::PER_VERTEX,
         features.intersects(wgt::Features::SHADER_PER_VERTEX),
     );

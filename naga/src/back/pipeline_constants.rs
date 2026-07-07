@@ -713,6 +713,18 @@ fn adjust_expr(new_pos: &HandleVec<Expression, Handle<Expression>>, expr: &mut E
             adjust(b);
             adjust(c);
         }
+        Expression::CooperativeVectorOp {
+            ref mut a,
+            ref mut b,
+            ref mut c,
+            ref mut d,
+            ref mut e,
+            ..
+        } => {
+            for operand in [a, b, c, d, e].iter_mut().filter_map(|o| o.as_mut()) {
+                adjust(operand);
+            }
+        }
     }
 }
 
@@ -922,6 +934,15 @@ fn adjust_stmt(new_pos: &HandleVec<Expression, Handle<Expression>>, stmt: &mut S
             adjust(target);
             adjust(&mut data.pointer);
             adjust(&mut data.stride);
+        }
+        Statement::CooperativeVectorStore {
+            ref mut pointer,
+            ref mut offset,
+            ref mut value,
+        } => {
+            adjust(pointer);
+            adjust(offset);
+            adjust(value);
         }
         Statement::RayPipelineFunction(ref mut func) => match *func {
             crate::RayPipelineFunction::TraceRay {

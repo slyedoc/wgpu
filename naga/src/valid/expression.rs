@@ -151,6 +151,8 @@ pub enum ExpressionError {
     UnsupportedWidth(crate::MathFunction, crate::ScalarKind, crate::Bytes),
     #[error("Invalid operand for cooperative op")]
     InvalidCooperativeOperand(Handle<crate::Expression>),
+    #[error("Malformed cooperative vector operation")]
+    InvalidCooperativeVectorOp,
     #[error("Shift amount exceeds the bit width of {lhs_type:?}")]
     ShiftAmountTooLarge {
         lhs_type: crate::TypeInner,
@@ -1408,6 +1410,96 @@ impl super::Validator {
                     }
                 }
                 ShaderStages::COMPUTE
+            }
+            E::CooperativeVectorOp {
+                op,
+                size,
+                scalar,
+                a,
+                b,
+                c,
+                d,
+                e,
+            } => {
+                use crate::CooperativeVectorOpKind as Cv;
+                let operand = |o: Option<Handle<crate::Expression>>| {
+                    o.ok_or(ExpressionError::InvalidCooperativeVectorOp)
+                };
+                let expect_uint = |h: Handle<crate::Expression>| match resolver[h] {
+                    Ti::Scalar(s) if s.kind == crate::ScalarKind::Uint => Ok(()),
+                    _ => Err(ExpressionError::InvalidCooperativeOperand(h)),
+                };
+                let expect_vec = |h: Handle<crate::Expression>| match resolver[h] {
+                    Ti::CooperativeVector {
+                        size: vs,
+                        scalar: vsc,
+                    } if vs == size && vsc == scalar => Ok(()),
+                    _ => Err(ExpressionError::InvalidCooperativeOperand(h)),
+                };
+                // Pointer to an array whose element is a float scalar; returns it.
+                let array_elem_scalar = |h: Handle<crate::Expression>| {
+                    resolver[h]
+                        .pointer_base_type()
+                        .and_then(|tr| match *tr.inner_with(&module.types) {
+                            Ti::Array { base, .. } => module.types[base].inner.scalar(),
+                            _ => None,
+                        })
+                        .filter(|s| s.kind == crate::ScalarKind::Float)
+                        .ok_or(ExpressionError::InvalidCooperativeOperand(h))
+                };
+                match op {
+                    Cv::Splat => {
+                        let value = operand(a)?;
+                        match resolver[value] {
+                            Ti::Scalar(s) if s == scalar => {}
+                            _ => {
+                                return Err(ExpressionError::InvalidCooperativeOperand(value));
+                            }
+                        }
+                    }
+                    Cv::Load => {
+                        let pointer = operand(a)?;
+                        if array_elem_scalar(pointer)? != scalar {
+                            return Err(ExpressionError::InvalidCooperativeOperand(pointer));
+                        }
+                        expect_uint(operand(b)?)?;
+                    }
+                    Cv::Insert => {
+                        expect_vec(operand(a)?)?;
+                        expect_uint(operand(b)?)?;
+                        let value = operand(c)?;
+                        match resolver[value] {
+                            Ti::Scalar(s) if s == scalar => {}
+                            _ => {
+                                return Err(ExpressionError::InvalidCooperativeOperand(value));
+                            }
+                        }
+                    }
+                    Cv::Extract => {
+                        expect_vec(operand(a)?)?;
+                        expect_uint(operand(b)?)?;
+                    }
+                    Cv::Max => {
+                        expect_vec(operand(a)?)?;
+                        expect_vec(operand(b)?)?;
+                    }
+                    Cv::MatMulAdd => {
+                        let input = operand(a)?;
+                        match resolver[input] {
+                            Ti::CooperativeVector { scalar: vsc, .. }
+                                if vsc.kind == crate::ScalarKind::Float => {}
+                            _ => {
+                                return Err(ExpressionError::InvalidCooperativeOperand(input));
+                            }
+                        }
+                        array_elem_scalar(operand(b)?)?;
+                        expect_uint(operand(c)?)?;
+                        array_elem_scalar(operand(d)?)?;
+                        expect_uint(operand(e)?)?;
+                    }
+                }
+                // The whole point of cooperative vectors: every stage, RT included.
+                ShaderStages::all()
             }
         };
         Ok(stages)

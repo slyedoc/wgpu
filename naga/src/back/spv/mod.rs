@@ -454,6 +454,10 @@ enum CooperativeType {
         scalar: crate::Scalar,
         role: crate::CooperativeRole,
     },
+    Vector {
+        size: crate::CooperativeVectorSize,
+        scalar: crate::Scalar,
+    },
 }
 
 impl CooperativeType {
@@ -470,6 +474,9 @@ impl CooperativeType {
                 scalar,
                 role,
             }),
+            crate::TypeInner::CooperativeVector { size, scalar } => {
+                Some(Self::Vector { size, scalar })
+            }
             _ => None,
         }
     }
@@ -1206,6 +1213,7 @@ pub fn supported_capabilities() -> crate::valid::Capabilities {
         | Caps::STORAGE_TEXTURE_BINDING_ARRAY_NON_UNIFORM_INDEXING
         | Caps::STORAGE_BUFFER_BINDING_ARRAY_NON_UNIFORM_INDEXING
         | Caps::COOPERATIVE_MATRIX
+        | Caps::COOPERATIVE_VECTOR
         | Caps::PER_VERTEX
         | Caps::RAY_TRACING_PIPELINE
         | Caps::DRAW_INDEX

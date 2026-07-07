@@ -142,6 +142,7 @@ impl crate::TypeInner {
             Ti::Scalar(scalar) | Ti::Vector { scalar, .. } => Some(scalar),
             Ti::Matrix { scalar, .. } => Some(scalar),
             Ti::CooperativeMatrix { scalar, .. } => Some(scalar),
+            Ti::CooperativeVector { scalar, .. } => Some(scalar),
             _ => None,
         }
     }
@@ -235,6 +236,9 @@ impl crate::TypeInner {
                 scalar,
                 role: _,
             } => Some(columns as u32 * rows as u32 * scalar.width as u32),
+            Self::CooperativeVector { size, scalar } => {
+                Some(size as u32 * scalar.width as u32)
+            }
             Self::Pointer { .. } | Self::ValuePointer { .. } => Some(POINTER_SPAN),
             Self::Array {
                 base: _,
@@ -391,7 +395,8 @@ impl crate::TypeInner {
             | Ti::Matrix { .. }
             | Ti::RayQuery { .. }
             | Ti::HitObject
-            | Ti::CooperativeMatrix { .. } => true,
+            | Ti::CooperativeMatrix { .. }
+            | Ti::CooperativeVector { .. } => true,
         }
     }
 
@@ -434,6 +439,7 @@ impl crate::TypeInner {
             crate::TypeInner::Vector { size, scalar } => Some((Some(size), scalar)),
             crate::TypeInner::Matrix { .. }
             | crate::TypeInner::CooperativeMatrix { .. }
+            | crate::TypeInner::CooperativeVector { .. }
             | crate::TypeInner::Atomic(_)
             | crate::TypeInner::Pointer { .. }
             | crate::TypeInner::ValuePointer { .. }
@@ -460,6 +466,7 @@ impl crate::TypeInner {
             | crate::TypeInner::Atomic(scalar) => scalar.is_abstract(),
             crate::TypeInner::Array { base, .. } => types[base].inner.is_abstract(types),
             crate::TypeInner::CooperativeMatrix { .. }
+            | crate::TypeInner::CooperativeVector { .. }
             | crate::TypeInner::ValuePointer { .. }
             | crate::TypeInner::Pointer { .. }
             | crate::TypeInner::Struct { .. }

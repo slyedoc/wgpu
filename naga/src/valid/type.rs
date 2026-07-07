@@ -456,6 +456,24 @@ impl super::Validator {
                     Alignment::from_width(scalar.width),
                 )
             }
+            Ti::CooperativeVector { size: _, scalar } => {
+                self.require_type_capability(Capabilities::COOPERATIVE_VECTOR)?;
+                if scalar.kind != crate::ScalarKind::Float
+                    || (scalar.width != 2 && scalar.width != 4)
+                {
+                    return Err(TypeError::MatrixElementNotFloat);
+                }
+                // Function/Private storage only: deliberately NOT host-shareable.
+                TypeInfo::new(
+                    TypeFlags::DATA
+                        | TypeFlags::SIZED
+                        | TypeFlags::COPY
+                        | TypeFlags::ARGUMENT
+                        | TypeFlags::CONSTRUCTIBLE
+                        | TypeFlags::CREATION_RESOLVED,
+                    Alignment::from_width(scalar.width),
+                )
+            }
             Ti::Atomic(scalar) => {
                 match scalar {
                     crate::Scalar {

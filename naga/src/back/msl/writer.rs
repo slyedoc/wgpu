@@ -237,6 +237,9 @@ impl Display for TypeContext<'_> {
                 rows,
                 scalar,
             } => put_numeric_type(out, scalar, &[rows, columns]),
+            crate::TypeInner::CooperativeVector { .. } => {
+                unimplemented!("cooperative vectors are not supported in MSL")
+            }
             // Requires Metal-2.3
             crate::TypeInner::CooperativeMatrix {
                 columns,
@@ -699,6 +702,7 @@ impl crate::Type {
             | Ti::Vector { .. }
             | Ti::Matrix { .. }
             | Ti::CooperativeMatrix { .. }
+            | Ti::CooperativeVector { .. }
             | Ti::Atomic(_)
             | Ti::Pointer { .. }
             | Ti::ValuePointer { .. } => self.name.is_some(),
@@ -2932,6 +2936,9 @@ impl<W: Write> Writer<W> {
                 }
                 write!(self.out, "}}")?;
             }
+            crate::Expression::CooperativeVectorOp { .. } => {
+                return Err(Error::UnsupportedCooperativeMatrix);
+            }
             crate::Expression::CooperativeLoad { ref data, .. } => {
                 if context.lang_version < (2, 3) {
                     return Err(Error::UnsupportedCooperativeMatrix);
@@ -4338,6 +4345,9 @@ impl<W: Write> Writer<W> {
                         }
                     }
                     writeln!(self.out, ");")?;
+                }
+                crate::Statement::CooperativeVectorStore { .. } => {
+                    return Err(Error::UnsupportedCooperativeMatrix);
                 }
                 crate::Statement::CooperativeStore { target, ref data } => {
                     write!(self.out, "{level}simdgroup_store(")?;

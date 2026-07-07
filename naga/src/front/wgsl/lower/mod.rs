@@ -2885,6 +2885,13 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                             role,
                         }
                     }
+                    conv::TypeGenerator::CooperativeVector { size } => {
+                        let (ty, span) = tl.ty_with_span(self, ctx)?;
+                        let ir::TypeInner::Scalar(scalar) = ctx.module.types[ty].inner else {
+                            return Err(Box::new(Error::UnsupportedCooperativeScalar(span)));
+                        };
+                        ir::TypeInner::CooperativeVector { size, scalar }
+                    }
                 };
                 ctx.as_global().ensure_type_exists(alias_name, ty_inner)
             }
@@ -3884,6 +3891,121 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                         MustUse::Yes,
                     )
                 }
+                "coopVecSplat" | "coopVecLoad" | "coopVecMatMulAdd" => {
+                    let (vec_ty, vec_span) = template_params.ty_with_span(self, ctx)?;
+                    let (size, scalar) = match ctx.module.types[vec_ty].inner {
+                        ir::TypeInner::CooperativeVector { size, scalar } => (size, scalar),
+                        _ => return Err(Box::new(Error::InvalidCooperativeLoadType(vec_span))),
+                    };
+                    let (op, arg_count) = match function_name {
+                        "coopVecSplat" => (ir::CooperativeVectorOpKind::Splat, 1),
+                        "coopVecLoad" => (ir::CooperativeVectorOpKind::Load, 2),
+                        _ => (ir::CooperativeVectorOpKind::MatMulAdd, 5),
+                    };
+                    let mut args = ctx.prepare_args(arguments, arg_count, call_span);
+                    let a = if op == ir::CooperativeVectorOpKind::Splat {
+                        self.expression_with_leaf_scalar(args.next()?, scalar, ctx)?
+                    } else {
+                        self.expression(args.next()?, ctx)?
+                    };
+                    let (b, c, d, e) = match op {
+                        ir::CooperativeVectorOpKind::Load => {
+                            let offset = self.expression(args.next()?, ctx)?;
+                            (Some(offset), None, None, None)
+                        }
+                        ir::CooperativeVectorOpKind::MatMulAdd => {
+                            let matrix = self.expression(args.next()?, ctx)?;
+                            let matrix_off = self.expression(args.next()?, ctx)?;
+                            let bias = self.expression(args.next()?, ctx)?;
+                            let bias_off = self.expression(args.next()?, ctx)?;
+                            (Some(matrix), Some(matrix_off), Some(bias), Some(bias_off))
+                        }
+                        _ => (None, None, None, None),
+                    };
+                    args.finish()?;
+
+                    (
+                        ir::Expression::CooperativeVectorOp {
+                            op,
+                            size,
+                            scalar,
+                            a: Some(a),
+                            b,
+                            c,
+                            d,
+                            e,
+                        },
+                        MustUse::Yes,
+                    )
+                }
+                "coopVecInsert" | "coopVecExtract" | "coopVecMax" => {
+                    let arg_count = match function_name {
+                        "coopVecInsert" => 3,
+                        _ => 2,
+                    };
+                    let mut args = ctx.prepare_args(arguments, arg_count, function_span);
+                    let vector_expr = args.next()?;
+                    let vector_span = ctx.ast_expressions.get_span(vector_expr);
+                    let vector = self.expression(vector_expr, ctx)?;
+                    let (size, scalar) = match *resolve_inner!(ctx, vector) {
+                        ir::TypeInner::CooperativeVector { size, scalar } => (size, scalar),
+                        _ => {
+                            return Err(Box::new(Error::InvalidCooperativeLoadType(vector_span)))
+                        }
+                    };
+                    let (op, b, c) = match function_name {
+                        "coopVecInsert" => {
+                            let index = self.expression(args.next()?, ctx)?;
+                            let value =
+                                self.expression_with_leaf_scalar(args.next()?, scalar, ctx)?;
+                            (ir::CooperativeVectorOpKind::Insert, Some(index), Some(value))
+                        }
+                        "coopVecExtract" => {
+                            let index = self.expression(args.next()?, ctx)?;
+                            (ir::CooperativeVectorOpKind::Extract, Some(index), None)
+                        }
+                        _ => {
+                            let other = self.expression(args.next()?, ctx)?;
+                            (ir::CooperativeVectorOpKind::Max, Some(other), None)
+                        }
+                    };
+                    args.finish()?;
+
+                    (
+                        ir::Expression::CooperativeVectorOp {
+                            op,
+                            size,
+                            scalar,
+                            a: Some(vector),
+                            b,
+                            c,
+                            d: None,
+                            e: None,
+                        },
+                        MustUse::Yes,
+                    )
+                }
+                "coopVecStore" => {
+                    let mut args = ctx.prepare_args(arguments, 3, function_span);
+                    let value = self.expression(args.next()?, ctx)?;
+                    let pointer = self.expression(args.next()?, ctx)?;
+                    let offset = self.expression(args.next()?, ctx)?;
+                    args.finish()?;
+
+                    let rctx = ctx.runtime_expression_ctx(function_span)?;
+                    rctx.block
+                        .extend(rctx.emitter.finish(&rctx.function.expressions));
+                    rctx.emitter.start(&rctx.function.expressions);
+                    rctx.block.push(
+                        crate::Statement::CooperativeVectorStore {
+                            pointer,
+                            offset,
+                            value,
+                        },
+                        function_span,
+                    );
+                    return Ok(None);
+                }
                 // Two forms: `traceRay(accel, desc, payload)` (SBT offset/stride/miss
                 // all 0), and the explicit-SBT `traceRay(accel, desc, sbt_offset,
                 // sbt_stride, miss_index, payload)` exposing the full `OpTraceRayKHR`
@@ -4217,7 +4339,8 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                             Constructor::PartialArray
                         }
                         conv::PredeclaredType::TypeGenerator(
-                            conv::TypeGenerator::CooperativeMatrix { .. },
+                            conv::TypeGenerator::CooperativeMatrix { .. }
+                            | conv::TypeGenerator::CooperativeVector { .. },
                         ) if empty_template_list => {
                             return Err(Box::new(Error::UnderspecifiedCooperativeMatrix));
                         }

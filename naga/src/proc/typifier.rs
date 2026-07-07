@@ -154,6 +154,7 @@ impl Clone for TypeResolution {
                     scalar,
                     role,
                 },
+                Ti::CooperativeVector { size, scalar } => Ti::CooperativeVector { size, scalar },
                 Ti::Pointer { base, space } => Ti::Pointer { base, space },
                 Ti::ValuePointer {
                     size,
@@ -847,6 +848,14 @@ impl<'a> ResolveContext<'a> {
                 })
             }
             crate::Expression::CooperativeMultiplyAdd { a: _, b: _, c } => past(c)?.clone(),
+            crate::Expression::CooperativeVectorOp {
+                op, size, scalar, ..
+            } => match op {
+                crate::CooperativeVectorOpKind::Extract => {
+                    TypeResolution::Value(Ti::Scalar(scalar))
+                }
+                _ => TypeResolution::Value(Ti::CooperativeVector { size, scalar }),
+            },
         })
     }
 }

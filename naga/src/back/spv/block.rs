@@ -2241,6 +2241,193 @@ impl BlockContext<'_> {
                 ));
                 id
             }
+            crate::Expression::CooperativeVectorOp {
+                op,
+                size,
+                scalar,
+                a,
+                b,
+                c,
+                d,
+                e,
+            } => {
+                self.writer.require_any(
+                    "CooperativeVector",
+                    &[spirv::Capability::CooperativeVectorNV],
+                )?;
+                use crate::CooperativeVectorOpKind as Cv;
+                match op {
+                    Cv::Splat => {
+                        let value_id = self.cached[a.unwrap()];
+                        let constituents =
+                            alloc::vec![value_id; size as u32 as usize];
+                        let id = self.gen_id();
+                        block.body.push(Instruction::composite_construct(
+                            result_type_id,
+                            id,
+                            &constituents,
+                        ));
+                        id
+                    }
+                    Cv::Load => {
+                        let offset_id =
+                            self.write_coop_vec_byte_offset(b.unwrap(), scalar, block);
+                        match self.write_access_chain(
+                            a.unwrap(),
+                            block,
+                            AccessTypeAdjustment::None,
+                        )? {
+                            ExpressionPointer::Ready { pointer_id } => {
+                                let id = self.gen_id();
+                                block.body.push(Instruction::coop_vec_load(
+                                    result_type_id,
+                                    id,
+                                    pointer_id,
+                                    offset_id,
+                                ));
+                                id
+                            }
+                            ExpressionPointer::Conditional { .. } => {
+                                return Err(Error::Validation(
+                                    "coopVecLoad pointer must be statically in bounds",
+                                ))
+                            }
+                        }
+                    }
+                    Cv::Insert => {
+                        let id = self.gen_id();
+                        block.body.push(Instruction::vector_insert_dynamic(
+                            result_type_id,
+                            id,
+                            self.cached[a.unwrap()],
+                            self.cached[c.unwrap()],
+                            self.cached[b.unwrap()],
+                        ));
+                        id
+                    }
+                    Cv::Extract => {
+                        let id = self.gen_id();
+                        block.body.push(Instruction::vector_extract_dynamic(
+                            result_type_id,
+                            id,
+                            self.cached[a.unwrap()],
+                            self.cached[b.unwrap()],
+                        ));
+                        id
+                    }
+                    Cv::Max => {
+                        let id = self.gen_id();
+                        block.body.push(Instruction::ext_inst_gl_op(
+                            self.writer.gl450_ext_inst_id,
+                            spirv::GlslStd450Op::FMax,
+                            result_type_id,
+                            id,
+                            &[self.cached[a.unwrap()], self.cached[b.unwrap()]],
+                        ));
+                        id
+                    }
+                    Cv::MatMulAdd => {
+                        let input = a.unwrap();
+                        let matrix = b.unwrap();
+                        let bias = d.unwrap();
+                        let input_id = self.cached[input];
+                        let types = &self.ir_module.types;
+                        let (k, input_scalar) =
+                            match *self.fun_info[input].ty.inner_with(types) {
+                                crate::TypeInner::CooperativeVector { size, scalar } => {
+                                    (size as u32, scalar)
+                                }
+                                _ => {
+                                    return Err(Error::Validation(
+                                        "coopVecMatMulAdd input is not a cooperative vector",
+                                    ))
+                                }
+                            };
+                        let pointee_scalar = |ctx: &Self, ptr: Handle<crate::Expression>| {
+                            ctx.fun_info[ptr]
+                                .ty
+                                .inner_with(&ctx.ir_module.types)
+                                .pointer_base_type()
+                                .and_then(|tr| match *tr.inner_with(&ctx.ir_module.types) {
+                                    crate::TypeInner::Array { base, .. } => {
+                                        ctx.ir_module.types[base].inner.scalar()
+                                    }
+                                    ref other => other.scalar(),
+                                })
+                                .ok_or(Error::Validation("coopVecMatMulAdd pointer operand"))
+                        };
+                        let matrix_scalar = pointee_scalar(self, matrix)?;
+                        let bias_scalar = pointee_scalar(self, bias)?;
+                        let interp = |scalar: crate::Scalar| match scalar.width {
+                            // VkComponentTypeKHR: FLOAT16 = 0, FLOAT32 = 1
+                            2 => Ok(0u32),
+                            4 => Ok(1u32),
+                            _ => Err(Error::Validation("coopVec scalar width")),
+                        };
+                        let input_interp_id = self.get_index_constant(interp(input_scalar)?);
+                        let matrix_interp_id = self.get_index_constant(interp(matrix_scalar)?);
+                        let bias_interp_id = self.get_index_constant(interp(bias_scalar)?);
+                        let m_id = self.get_index_constant(size as u32);
+                        let k_id = self.get_index_constant(k);
+                        let layout_id = self.get_index_constant(
+                            spirv::CooperativeVectorMatrixLayout::RowMajorNV as u32,
+                        );
+                        let transpose_id = self
+                            .writer
+                            .get_constant_scalar(crate::Literal::Bool(false));
+                        // row-major stride in BYTES: one row = K elements
+                        let stride_id =
+                            self.get_index_constant(k * matrix_scalar.width as u32);
+                        let matrix_offset_id =
+                            self.write_coop_vec_byte_offset(c.unwrap(), matrix_scalar, block);
+                        let bias_offset_id =
+                            self.write_coop_vec_byte_offset(e.unwrap(), bias_scalar, block);
+                        let matrix_ptr = match self.write_access_chain(
+                            matrix,
+                            block,
+                            AccessTypeAdjustment::None,
+                        )? {
+                            ExpressionPointer::Ready { pointer_id } => pointer_id,
+                            ExpressionPointer::Conditional { .. } => {
+                                return Err(Error::Validation(
+                                    "coopVecMatMulAdd matrix pointer must be statically in bounds",
+                                ))
+                            }
+                        };
+                        let bias_ptr = match self.write_access_chain(
+                            bias,
+                            block,
+                            AccessTypeAdjustment::None,
+                        )? {
+                            ExpressionPointer::Ready { pointer_id } => pointer_id,
+                            ExpressionPointer::Conditional { .. } => {
+                                return Err(Error::Validation(
+                                    "coopVecMatMulAdd bias pointer must be statically in bounds",
+                                ))
+                            }
+                        };
+                        let id = self.gen_id();
+                        block.body.push(Instruction::coop_vec_mat_mul_add(
+                            result_type_id,
+                            id,
+                            input_id,
+                            input_interp_id,
+                            matrix_ptr,
+                            matrix_offset_id,
+                            matrix_interp_id,
+                            bias_ptr,
+                            bias_offset_id,
+                            bias_interp_id,
+                            m_id,
+                            k_id,
+                            layout_id,
+                            transpose_id,
+                            stride_id,
+                        ));
+                        id
+                    }
+                }
+            }
         };
 
         self.cached[expr_handle] = id;
@@ -2519,6 +2706,27 @@ impl BlockContext<'_> {
 
     /// Build an `OpAccessChain` instruction.
     ///
+    /// Convert a cooperative-vector element offset to bytes (u32 multiply).
+    fn write_coop_vec_byte_offset(
+        &mut self,
+        offset: Handle<crate::Expression>,
+        scalar: crate::Scalar,
+        block: &mut Block,
+    ) -> Word {
+        let elems_id = self.cached[offset];
+        let width_id = self.get_index_constant(scalar.width as u32);
+        let u32_id = self.writer.get_u32_type_id();
+        let id = self.gen_id();
+        block.body.push(Instruction::binary(
+            spirv::Op::IMul,
+            u32_id,
+            id,
+            elems_id,
+            width_id,
+        ));
+        id
+    }
+
     /// Emit any needed bounds-checking expressions to `block`.
     ///
     /// Give the `OpAccessChain` a result type based on `expr_handle`, adjusted
@@ -4243,6 +4451,45 @@ impl BlockContext<'_> {
 
                             // Finish the in-bounds block and start the merge block. This
                             // is the block we'll leave current on return.
+                            selection.finish(self, ());
+                        }
+                    };
+                }
+                Statement::CooperativeVectorStore {
+                    pointer,
+                    offset,
+                    value,
+                } => {
+                    let value_id = self.cached[value];
+                    let value_scalar = match *self.fun_info[value]
+                        .ty
+                        .inner_with(&self.ir_module.types)
+                    {
+                        crate::TypeInner::CooperativeVector { scalar, .. } => scalar,
+                        _ => return Err(Error::Validation("coopVecStore value")),
+                    };
+                    let offset_id =
+                        self.write_coop_vec_byte_offset(offset, value_scalar, &mut block);
+                    match self.write_access_chain(
+                        pointer,
+                        &mut block,
+                        AccessTypeAdjustment::None,
+                    )? {
+                        ExpressionPointer::Ready { pointer_id } => {
+                            block.body.push(Instruction::coop_vec_store(
+                                pointer_id, offset_id, value_id,
+                            ));
+                        }
+                        ExpressionPointer::Conditional { condition, access } => {
+                            let mut selection = Selection::start(&mut block, ());
+                            selection.if_true(self, condition, ());
+
+                            let pointer_id = access.result_id.unwrap();
+                            selection.block().body.push(access);
+                            selection.block().body.push(Instruction::coop_vec_store(
+                                pointer_id, offset_id, value_id,
+                            ));
+
                             selection.finish(self, ());
                         }
                     };

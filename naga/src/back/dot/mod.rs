@@ -405,6 +405,16 @@ impl StatementGraph {
                         },
                     }
                 }
+                S::CooperativeVectorStore {
+                    pointer,
+                    offset,
+                    value,
+                } => {
+                    self.dependencies.push((id, pointer, "pointer"));
+                    self.dependencies.push((id, offset, "offset"));
+                    self.dependencies.push((id, value, "value"));
+                    "CoopVecStore"
+                }
                 S::CooperativeStore { target, data } => {
                     self.dependencies.push((id, target, "target"));
                     self.dependencies.push((id, data.pointer, "pointer"));
@@ -846,6 +856,16 @@ fn write_function_expressions(
                 edges.insert("stride", data.stride);
                 let suffix = if data.row_major { "T " } else { "" };
                 (format!("coopLoad{suffix}").into(), 4)
+            }
+            E::CooperativeVectorOp {
+                op, a, b, c, d, e, ..
+            } => {
+                for (name, operand) in [("a", a), ("b", b), ("c", c), ("d", d), ("e", e)] {
+                    if let Some(h) = operand {
+                        edges.insert(name, h);
+                    }
+                }
+                (format!("coopVec{op:?}").into(), 4)
             }
             E::CooperativeMultiplyAdd { a, b, c } => {
                 edges.insert("a", a);

@@ -820,7 +820,8 @@ impl super::Validator {
                             | Ex::ReadClock
                             | Ex::PhysicalLoad { .. }
                             | Ex::CooperativeLoad { .. }
-                            | Ex::CooperativeMultiplyAdd { .. } => {
+                            | Ex::CooperativeMultiplyAdd { .. }
+                            | Ex::CooperativeVectorOp { .. } => {
                                 self.emit_expression(handle, context)?
                             }
                             Ex::CallResult(_)
@@ -1690,6 +1691,50 @@ impl super::Validator {
                         return Err(FunctionError::InvalidStorePointer(data.pointer)
                             .with_span_static(
                                 context.expressions.get_span(data.pointer),
+                                "writing to this location is not permitted",
+                            ));
+                    }
+                }
+                S::CooperativeVectorStore {
+                    pointer,
+                    offset,
+                    value,
+                } => {
+                    let value_scalar =
+                        match *context.resolve_type_inner(value, &self.valid_expression_set)? {
+                            Ti::CooperativeVector { scalar, .. } => scalar,
+                            ref other => {
+                                log::error!("Value operand type: {other:?}");
+                                return Err(FunctionError::InvalidCooperativeStoreTarget(value)
+                                    .with_span_handle(value, context.expressions));
+                            }
+                        };
+                    match *context.resolve_type_inner(offset, &self.valid_expression_set)? {
+                        Ti::Scalar(s) if s.kind == crate::ScalarKind::Uint => {}
+                        _ => {
+                            return Err(FunctionError::InvalidCooperativeDataPointer(offset)
+                                .with_span_handle(offset, context.expressions));
+                        }
+                    }
+
+                    let ptr_ty = context.resolve_pointer_type(pointer);
+                    let ptr_scalar =
+                        ptr_ty
+                            .pointer_base_type()
+                            .and_then(|tr| match *tr.inner_with(context.types) {
+                                Ti::Array { base, .. } => context.types[base].inner.scalar(),
+                                _ => None,
+                            });
+                    if ptr_scalar != Some(value_scalar) {
+                        return Err(FunctionError::InvalidCooperativeDataPointer(pointer)
+                            .with_span_handle(pointer, context.expressions));
+                    }
+
+                    let ptr_space = ptr_ty.pointer_space().unwrap_or(AddressSpace::Handle);
+                    if !ptr_space.access().contains(crate::StorageAccess::STORE) {
+                        return Err(FunctionError::InvalidStorePointer(pointer)
+                            .with_span_static(
+                                context.expressions.get_span(pointer),
                                 "writing to this location is not permitted",
                             ));
                     }

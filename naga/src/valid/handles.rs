@@ -396,6 +396,7 @@ impl super::Validator {
             | crate::TypeInner::Vector { .. }
             | crate::TypeInner::Matrix { .. }
             | crate::TypeInner::CooperativeMatrix { .. }
+            | crate::TypeInner::CooperativeVector { .. }
             | crate::TypeInner::ValuePointer { .. }
             | crate::TypeInner::Atomic { .. }
             | crate::TypeInner::Image { .. }
@@ -684,6 +685,11 @@ impl super::Validator {
             crate::Expression::CooperativeMultiplyAdd { a, b, c } => {
                 handle.check_dep(a)?.check_dep(b)?.check_dep(c)?;
             }
+            crate::Expression::CooperativeVectorOp { a, b, c, d, e, .. } => {
+                for operand in [a, b, c, d, e].into_iter().flatten() {
+                    handle.check_dep(operand)?;
+                }
+            }
         }
         Ok(())
     }
@@ -876,6 +882,16 @@ impl super::Validator {
                 validate_expr(target)?;
                 validate_expr(data.pointer)?;
                 validate_expr(data.stride)?;
+                Ok(())
+            }
+            crate::Statement::CooperativeVectorStore {
+                pointer,
+                offset,
+                value,
+            } => {
+                validate_expr(pointer)?;
+                validate_expr(offset)?;
+                validate_expr(value)?;
                 Ok(())
             }
             crate::Statement::RayPipelineFunction(fun) => match fun {

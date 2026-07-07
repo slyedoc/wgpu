@@ -219,6 +219,11 @@ impl Layouter {
                         alignment: Alignment::from(rows) * alignment,
                     }
                 }
+                Ti::CooperativeVector { size: _, scalar } => {
+                    let alignment = Alignment::new(scalar.width as u32)
+                        .ok_or(LayoutErrorInner::NonPowerOfTwoWidth.with(ty_handle))?;
+                    TypeLayout { size, alignment }
+                }
                 Ti::CooperativeMatrix {
                     columns: _,
                     rows,
