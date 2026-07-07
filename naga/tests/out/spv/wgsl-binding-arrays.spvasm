@@ -5,6 +5,8 @@
 OpCapability Shader
 OpCapability ImageQuery
 OpCapability ShaderNonUniform
+OpCapability StorageBufferArrayNonUniformIndexing
+OpCapability SampledImageArrayNonUniformIndexing
 OpExtension "SPV_EXT_descriptor_indexing"
 %1 = OpExtInstImport "GLSL.std.450"
 OpMemoryModel Logical GLSL450

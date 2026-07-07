@@ -4,6 +4,7 @@
 ; Bound: 76
 OpCapability Shader
 OpCapability ShaderNonUniform
+OpCapability StorageBufferArrayNonUniformIndexing
 OpExtension "SPV_KHR_storage_buffer_storage_class"
 OpExtension "SPV_EXT_descriptor_indexing"
 %1 = OpExtInstImport "GLSL.std.450"

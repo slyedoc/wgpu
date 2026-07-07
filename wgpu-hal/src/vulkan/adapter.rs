@@ -2869,6 +2869,32 @@ impl super::Adapter {
             })
         }
 
+        // NVIDIA Nsight Aftermath: opt-in via WGPU_AFTERMATH, enables NV diagnostics for rich crash dumps.
+        let mut aftermath_diag = vk::DeviceDiagnosticsConfigCreateInfoNV::default();
+        let mut aftermath_feat = vk::PhysicalDeviceDiagnosticsConfigFeaturesNV::default();
+        if std::env::var_os("WGPU_AFTERMATH").is_some()
+            && self
+                .phd_capabilities
+                .supports_extension(vk::NV_DEVICE_DIAGNOSTICS_CONFIG_NAME)
+        {
+            enabled_extensions.push(vk::NV_DEVICE_DIAGNOSTICS_CONFIG_NAME);
+            if self
+                .phd_capabilities
+                .supports_extension(vk::NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_NAME)
+            {
+                enabled_extensions.push(vk::NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_NAME);
+            }
+            aftermath_diag = aftermath_diag.flags(
+                vk::DeviceDiagnosticsConfigFlagsNV::ENABLE_SHADER_DEBUG_INFO
+                    | vk::DeviceDiagnosticsConfigFlagsNV::ENABLE_RESOURCE_TRACKING
+                    | vk::DeviceDiagnosticsConfigFlagsNV::ENABLE_AUTOMATIC_CHECKPOINTS
+                    | vk::DeviceDiagnosticsConfigFlagsNV::ENABLE_SHADER_ERROR_REPORTING,
+            );
+            aftermath_feat = aftermath_feat.diagnostics_config(true);
+            pre_info = pre_info.push(&mut aftermath_diag).push(&mut aftermath_feat);
+            log::warn!("Nsight Aftermath: NV device diagnostics enabled");
+        }
+
         let str_pointers = enabled_extensions
             .iter()
             .map(|&s| {

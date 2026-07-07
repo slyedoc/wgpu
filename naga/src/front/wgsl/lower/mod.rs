@@ -3732,7 +3732,7 @@ impl<'source, 'temp> Lowerer<'source, 'temp> {
                     )
                 }
                 "shader_clock" => {
-                    let mut args = ctx.prepare_args(arguments, 0, function_span);
+                    let args = ctx.prepare_args(arguments, 0, function_span);
                     args.finish()?;
                     // `interrupt_emitter` materializes the clock read at the call site
                     // (its own emit), so the two reads bracketing a trace aren't
