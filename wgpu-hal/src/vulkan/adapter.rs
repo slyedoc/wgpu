@@ -1915,6 +1915,22 @@ impl super::InstanceShared {
                     get_device_properties.get_physical_device_properties2(phd, &mut properties2)
                 };
 
+                // DIAGNOSTIC: which stages support cooperative vectors?
+                if capabilities.supports_extension(nv::cooperative_vector::NAME) {
+                    let mut cv =
+                        vk::PhysicalDeviceCooperativeVectorPropertiesNV::default();
+                    let mut p2 = vk::PhysicalDeviceProperties2KHR::default().push(&mut cv);
+                    unsafe {
+                        get_device_properties.get_physical_device_properties2(phd, &mut p2)
+                    };
+                    log::warn!(
+                        "NV cooperative_vector supported stages: {:?} (RAYGEN present: {})",
+                        cv.cooperative_vector_supported_stages,
+                        cv.cooperative_vector_supported_stages
+                            .contains(vk::ShaderStageFlags::RAYGEN_KHR),
+                    );
+                }
+
                 // Query cooperative matrix properties
                 if capabilities.supports_extension(khr::cooperative_matrix::NAME) {
                     let coop_matrix =
