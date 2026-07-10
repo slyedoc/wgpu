@@ -1923,7 +1923,7 @@ impl super::InstanceShared {
                     unsafe {
                         get_device_properties.get_physical_device_properties2(phd, &mut p2)
                     };
-                    log::warn!(
+                    log::debug!(
                         "NV cooperative_vector supported stages: {:?} (RAYGEN present: {})",
                         cv.cooperative_vector_supported_stages,
                         cv.cooperative_vector_supported_stages
