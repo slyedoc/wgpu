@@ -392,6 +392,14 @@ impl ContextWgpuCore {
     ) -> Option<impl Deref<Target = A::Queue> + WasmNotSendSync> {
         unsafe { self.0.queue_as_hal::<A>(queue.id) }
     }
+
+    pub unsafe fn queue_as_hal_locked<A: hal::Api, R>(
+        &self,
+        queue: &CoreQueue,
+        callback: impl FnOnce(Option<&A::Queue>) -> R,
+    ) -> R {
+        unsafe { self.0.queue_as_hal_locked::<A, R>(queue.id, callback) }
+    }
 }
 
 fn map_buffer_copy_view(

@@ -379,6 +379,30 @@ impl Global {
         SimpleResourceGuard::new(queue, move |queue| queue.raw().as_any().downcast_ref())
     }
 
+    /// Runs `callback` with the raw hal queue while holding the device's
+    /// submission-serializing lock — the same lock `Queue::submit` and surface
+    /// presentation hold across their raw queue operations. Raw-API queue work
+    /// (`vkQueueBindSparse`, out-of-band submits) must go through this to satisfy
+    /// the external-synchronization requirement on queues: wgpu's own submissions
+    /// on other threads contend on this lock, not on the hal queue itself.
+    ///
+    /// The callback receives `None` if the queue is not backed by `A`.
+    ///
+    /// # Safety
+    ///
+    /// - The raw queue handle must not be manually destroyed
+    pub unsafe fn queue_as_hal_locked<A: hal::Api, R>(
+        &self,
+        id: QueueId,
+        callback: impl FnOnce(Option<&A::Queue>) -> R,
+    ) -> R {
+        profiling::scope!("Queue::as_hal_locked");
+
+        let queue = self.hub.queues.get(id);
+        let _fence_guard = queue.device.fence.write();
+        callback(queue.raw().as_any().downcast_ref())
+    }
+
     /// # Safety
     ///
     /// - The raw blas handle must not be manually destroyed

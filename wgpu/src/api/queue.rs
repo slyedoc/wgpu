@@ -343,6 +343,34 @@ impl Queue {
         unsafe { queue.context.queue_as_hal::<A>(queue) }
     }
 
+    /// Runs `callback` with the raw hal queue while holding wgpu's internal
+    /// submission-serializing lock — the same lock [`Queue::submit`] and surface
+    /// presentation hold across their raw queue operations. Any out-of-band raw-API
+    /// queue work (e.g. `vkQueueBindSparse`) must run inside this callback to
+    /// satisfy the API's external-synchronization requirement on queues; plain
+    /// [`Queue::as_hal`] gives no such protection against wgpu submitting from
+    /// another thread.
+    ///
+    /// The callback receives `None` if this queue is not backed by `A` (or is not
+    /// a wgpu-core queue).
+    ///
+    /// # Safety
+    ///
+    /// - The raw queue handle must not be manually destroyed.
+    /// - All wgpu-hal safety requirements apply to what the callback does with it.
+    /// - The callback must not call back into wgpu operations that submit to,
+    ///   present on, or poll this device — they take the same lock (deadlock).
+    #[cfg(wgpu_core)]
+    pub unsafe fn as_hal_locked<A: hal::Api, R>(
+        &self,
+        callback: impl FnOnce(Option<&A::Queue>) -> R,
+    ) -> R {
+        match self.inner.as_core_opt() {
+            Some(queue) => unsafe { queue.context.queue_as_hal_locked::<A, R>(queue, callback) },
+            None => callback(None),
+        }
+    }
+
     /// Compact a BLAS, it must have had [`Blas::prepare_compaction_async`] called on it and had the
     /// callback provided called.
     ///
