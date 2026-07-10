@@ -1200,7 +1200,11 @@ impl BlockContext<'_> {
                             Some(crate::ScalarKind::Sint | crate::ScalarKind::Uint) => {
                                 spirv::Op::INotEqual
                             }
-                            Some(crate::ScalarKind::Float) => spirv::Op::FOrdNotEqual,
+                            // IEEE: a comparison with NaN as either operand is
+                            // unordered, and `!=` must then be TRUE — so `x != x`
+                            // works as a NaN detector. FOrdNotEqual returns false
+                            // for NaN operands and silently kills such guards.
+                            Some(crate::ScalarKind::Float) => spirv::Op::FUnordNotEqual,
                             Some(crate::ScalarKind::Bool) => spirv::Op::LogicalNotEqual,
                             _ => unimplemented!(),
                         },
