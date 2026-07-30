@@ -3803,18 +3803,6 @@ impl Writer {
             ep_instruction.to_words(&mut self.logical_layout.entry_points);
         }
 
-        for capability in self.capabilities_used.iter() {
-            Instruction::capability(*capability).to_words(&mut self.logical_layout.capabilities);
-        }
-        for extension in self.extensions_used.iter() {
-            Instruction::extension(extension).to_words(&mut self.logical_layout.extensions);
-        }
-        if ir_module.entry_points.is_empty() {
-            // SPIR-V doesn't like modules without entry points
-            Instruction::capability(spirv::Capability::Linkage)
-                .to_words(&mut self.logical_layout.capabilities);
-        }
-
         // Promote to PhysicalStorageBuffer64 if any `physical_load` required the
         // buffer-device-address capability (logical pointers still work alongside).
         let addressing_model = if self
@@ -3833,6 +3821,45 @@ impl Writer {
         } else {
             spirv::MemoryModel::GLSL450
         };
+
+        // Under the Vulkan memory model, `Device` scope is only legal if the
+        // module declares `VulkanMemoryModelDeviceScope`, and
+        // `AddressSpace::to_spirv_semantics_and_scope` emits `Device` for every
+        // `Storage`/`Uniform`/`Handle` atomic. A module reaches this branch by
+        // using a cooperative matrix or vector, so any shader mixing coopvec
+        // inference with a storage atomic — Solari's `raygen.wgsl` is exactly
+        // that — otherwise produces SPIR-V that spirv-val rejects with
+        // VUID-VkShaderModuleCreateInfo-pCode-08737.
+        //
+        // Declared here rather than via `require_any` at the atomic itself: the
+        // memory model is not known until every function has been written, and
+        // capability words must be emitted before it either way. Consumers that
+        // do not offer the capability keep the old (invalid, but accepted by
+        // drivers in practice) output rather than failing to compile at all.
+        if memory_model == spirv::MemoryModel::Vulkan
+            && self
+                .capabilities_available
+                .as_ref()
+                .is_none_or(|available| {
+                    available.contains(&spirv::Capability::VulkanMemoryModelDeviceScope)
+                })
+        {
+            self.capabilities_used
+                .insert(spirv::Capability::VulkanMemoryModelDeviceScope);
+        }
+
+        for capability in self.capabilities_used.iter() {
+            Instruction::capability(*capability).to_words(&mut self.logical_layout.capabilities);
+        }
+        for extension in self.extensions_used.iter() {
+            Instruction::extension(extension).to_words(&mut self.logical_layout.extensions);
+        }
+        if ir_module.entry_points.is_empty() {
+            // SPIR-V doesn't like modules without entry points
+            Instruction::capability(spirv::Capability::Linkage)
+                .to_words(&mut self.logical_layout.capabilities);
+        }
+
         //self.check(addressing_model.required_capabilities())?;
         //self.check(memory_model.required_capabilities())?;
 

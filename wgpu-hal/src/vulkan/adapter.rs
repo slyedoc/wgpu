@@ -2713,15 +2713,22 @@ impl super::Adapter {
             if features.contains(wgt::Features::EXPERIMENTAL_MESH_SHADER) {
                 capabilities.push(spv::Capability::MeshShadingEXT);
             }
+            // `VulkanMemoryModelDeviceScope` rides along with the memory model
+            // itself: naga emits `Device`-scope atomics for storage/uniform
+            // access, which the Vulkan memory model only permits when the module
+            // declares it. The matching device feature is enabled under the same
+            // condition in `PhysicalDeviceFeatures::from_extensions_and_requested_features`.
             if features.contains(wgt::Features::EXPERIMENTAL_COOPERATIVE_MATRIX) {
                 capabilities.push(spv::Capability::CooperativeMatrixKHR);
                 // TODO: expose this more generally
                 capabilities.push(spv::Capability::VulkanMemoryModel);
+                capabilities.push(spv::Capability::VulkanMemoryModelDeviceScope);
             }
             if features.contains(wgt::Features::EXPERIMENTAL_COOPERATIVE_VECTOR) {
                 capabilities.push(spv::Capability::CooperativeVectorNV);
                 capabilities.push(spv::Capability::CooperativeVectorTrainingNV);
                 capabilities.push(spv::Capability::VulkanMemoryModel);
+                capabilities.push(spv::Capability::VulkanMemoryModelDeviceScope);
             }
             if self.private_caps.shader_integer_dot_product {
                 // See <https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_shader_integer_dot_product.html#_new_spir_v_capabilities>.

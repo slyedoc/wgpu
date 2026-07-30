@@ -5,6 +5,7 @@
 OpCapability Shader
 OpCapability CooperativeMatrixKHR
 OpCapability VulkanMemoryModel
+OpCapability VulkanMemoryModelDeviceScope
 OpExtension "SPV_KHR_cooperative_matrix"
 OpExtension "SPV_KHR_vulkan_memory_model"
 %1 = OpExtInstImport "GLSL.std.450"

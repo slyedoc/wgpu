@@ -89,12 +89,17 @@ impl crate::AddressSpace {
         self,
     ) -> (spirv::MemorySemantics, spirv::Scope) {
         // Device scope here is intentional. The narrower `QueueFamily` scope is
-        // only legal under the Vulkan memory model, which requires the module to
-        // declare `OpCapability VulkanMemoryModel` — naga only does that for
-        // cooperative matrices, so these (GLSL450-memory-model) modules would emit
-        // invalid SPIR-V with QueueFamily and be rejected by spirv-val. Device
-        // scope is valid SPIR-V; the `vulkanMemoryModelDeviceScope`-06265 runtime
-        // validation message it triggers is benign (the driver honours it).
+        // only legal under the Vulkan memory model, and most modules are GLSL450
+        // — they would emit invalid SPIR-V with QueueFamily and be rejected by
+        // spirv-val. Device scope is valid under GLSL450 unconditionally.
+        //
+        // A module *does* land on the Vulkan memory model whenever it uses a
+        // cooperative matrix or vector, and there Device scope needs
+        // `OpCapability VulkanMemoryModelDeviceScope`. That capability cannot be
+        // required from here — the memory model is not decided until every
+        // function has been written — so `Writer::write_logical_layout` declares
+        // it once the model is known. Do not narrow this to `QueueFamily` on the
+        // assumption that GLSL450 modules are the only callers.
         match self {
             Self::Storage { .. } => (spirv::MemorySemantics::empty(), spirv::Scope::Device),
             Self::WorkGroup => (spirv::MemorySemantics::empty(), spirv::Scope::Workgroup),
