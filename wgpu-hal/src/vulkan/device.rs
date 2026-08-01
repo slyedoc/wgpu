@@ -988,9 +988,20 @@ impl crate::Device for super::Device {
         &self,
         desc: &crate::BufferDescriptor,
     ) -> Result<super::Buffer, crate::DeviceError> {
+        // Storage buffers get SHADER_DEVICE_ADDRESS whenever the device
+        // enabled `VK_KHR_buffer_device_address`, so external (raw-Vulkan)
+        // interop can legally call `vkGetBufferDeviceAddress` on buffers
+        // wgpu created. The memory side is covered: the allocator is
+        // constructed with `buffer_device_address` when the extension is on.
+        let mut vk_usage = conv::map_buffer_usage(desc.usage);
+        if vk_usage.contains(vk::BufferUsageFlags::STORAGE_BUFFER)
+            && self.shared.extension_fns.ray_tracing.is_some()
+        {
+            vk_usage |= vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS;
+        }
         let vk_info = vk::BufferCreateInfo::default()
             .size(desc.size)
-            .usage(conv::map_buffer_usage(desc.usage))
+            .usage(vk_usage)
             .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
         let raw = unsafe {
